@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Warehouse Checks</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;-webkit-font-smoothing:antialiased}
+  button{cursor:pointer;font-family:inherit;transition:opacity .15s}
+  button:active{opacity:.7}
+  input{font-family:inherit}
+  .scroll-x{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .scroll-x::-webkit-scrollbar{display:none}
+  #app{max-width:430px;margin:0 auto;min-height:100vh;background:#f1f5f9}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+
+// ── Firebase REST ─────────────────────────────────────────────
+var DB_URL = "https://warehouse-checks-default-rtdb.firebaseio.com";
+function dbRead(path){return fetch(DB_URL+path+".json").then(function(r){return r.json();});}
+function dbWrite(path,data){return fetch(DB_URL+path+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(function(r){return r.json();});}
+function dbDelete(path){return fetch(DB_URL+path+".json",{method:"DELETE"}).then(function(r){return r.json();});}
+
+// ── config ────────────────────────────────────────────────────
+var SITES = ["Fuji","Koi","Bonsai","Yuzu"];
+var SITE_CFG = {
+  Fuji:   {color:"#185FA5", bg:"#dbeafe", abbr:"FU", pageBg:"#eff6ff"},
+  Koi:    {color:"#993C1D", bg:"#fee2e2", abbr:"KO", pageBg:"#fff5f5"},
+  Bonsai: {color:"#0F6E56", bg:"#d1fae5", abbr:"BO", pageBg:"#f0fdf4"},
+  Yuzu:   {color:"#854F0B", bg:"#fef3c7", abbr:"YU", pageBg:"#fffbeb"}
+};
+var CHECK_CFG = {
+  mice:    {label:"Mice activity"},
+  nozzle:  {label:"Nozzle check"},
+  temp:    {label:"Temperature"},
+  shutter: {label:"Shutter door"}
+};
+var SHUTTER = [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+var SCH = {
+  Fuji: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    temp:    [4,8,12,16,20,22],
+    shutter: SHUTTER
+  },
+  Koi: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    temp:    [4,8,12,16,20,22],
+    shutter: SHUTTER
+  },
+  Bonsai: {
+    mice:    [5,7,9,11,13,15,17,19,21],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    shutter: SHUTTER
+  },
+  Yuzu: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    shutter: SHUTTER
+  }
+};
+var STATUS_STYLE = {
+  done:     {bg:"#dcfce7", c:"#166534", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Done"},
+  overdue:  {bg:"#ffedd5", c:"#c2410c", rowBg:"#fff7ed", rowBdr:"#fed7aa", label:"Overdue"},
+  missed:   {bg:"#fee2e2", c:"#991b1b", rowBg:"#fff1f2", rowBdr:"#fecdd3", label:"Missed"},
+  due:      {bg:"#fef9c3", c:"#854d0e", rowBg:"#fffbeb", rowBdr:"#fde68a", label:"Due now"},
+  upcoming: {bg:"#f1f5f9", c:"#64748b", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Upcoming"}
+};
+
+// ── helpers ───────────────────────────────────────────────────
+function dstr(d){if(!d)d=new Date();return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());}
+function fmtH(h){if(h===0)return"12:00 AM";if(h<12)return h+":00 AM";if(h===12)return"12:00 PM";return(h-12)+":00 PM";}
+function pad2(n){return String(n).padStart(2,"0");}
+function ckKey(ds,site,type,hr){return ds+"||"+site+"||"+type+"||"+pad2(hr);}
+function dbPath(ds,site,type,hr){return"/checks/"+ds+"/"+site+"/"+type+"/h"+pad2(hr);}
+function nfKeyFn(ds,site,type,hr,k){return"nf|"+ds+"|"+site+"|"+type+"|"+pad2(hr)+"|"+k;}
+function normName(n){return n.trim().toLowerCase().replace(/\s+/g,"_");}
+function genDeviceId(){return"dev_"+Math.random().toString(36).substr(2,9)+Date.now().toString(36);}
+function loadNotified(){try{var r=localStorage.getItem("wh_notified_"+dstr());return r?JSON.parse(r):[];}catch(e){return[];}}
+function saveNotified(a){try{localStorage.setItem("wh_notified_"+dstr(),JSON.stringify(a));}catch(e){}}
+
+// ── user identity ─────────────────────────────────────────────
+var myDeviceId = localStorage.getItem("wh_device_id") || null;
+var myName     = localStorage.getItem("wh_user_name")  || null;
+
+if(!myDeviceId){
+  myDeviceId = genDeviceId();
+  localStorage.setItem("wh_device_id", myDeviceId);
+}
+
+// ── app state ─────────────────────────────────────────────────
+var now        = new Date();
+var tab        = "overview";
+var checks     = {};
+var dbStatus   = "connecting";
+var modal      = null;
+var toasts     = [];
+var saving     = false;
+var notifPerm  = typeof Notification!=="undefined"?Notification.permission:"denied";
+var historyDay = null;
+var notifiedArr= loadNotified();
+
+// Registration state
+var regScreen  = !myName;   // show registration if no name yet
+var regInput   = "";
+var regStatus  = "";        // "" | "checking" | "taken" | "error" | "saving"
+
+// ── Firebase load ─────────────────────────────────────────────
+function loadData(){
+  var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-8));
+  dbRead("/checks").then(function(data){
+    if(!data)data={};
+    checks={};
+    var dsList=Object.keys(data);
+    for(var i=0;i<dsList.length;i++){
+      var ds=dsList[i];if(ds<cutoff)continue;
+      var sites=data[ds]||{},sl=Object.keys(sites);
+      for(var j=0;j<sl.length;j++){
+        var site=sl[j],types=sites[site]||{},tl=Object.keys(types);
+        for(var k=0;k<tl.length;k++){
+          var type=tl[k],hours=types[type]||{},hl=Object.keys(hours);
+          for(var l=0;l<hl.length;l++){
+            var hrKey=hl[l],hr=parseInt(hrKey.replace("h",""));
+            checks[ckKey(ds,site,type,hr)]=hours[hrKey];
+          }
+        }
+      }
+    }
+    dbStatus="online";render();
+  }).catch(function(){dbStatus="offline";render();});
+}
+function startPolling(){loadData();setInterval(loadData,30000);}
+
+// ── registration ──────────────────────────────────────────────
+function tryRegister(){
+  var name=regInput.trim();
+  if(!name||name.length<2){regStatus="short";render();return;}
+  regStatus="checking";render();
+  var key=normName(name);
+  dbRead("/users/"+key).then(function(existing){
+    if(existing&&existing.deviceId&&existing.deviceId!==myDeviceId){
+      regStatus="taken";render();
+      return;
+    }
+    // Name is free (or was previously registered to this device) — claim it
+    regStatus="saving";render();
+    return dbWrite("/users/"+key,{displayName:name,deviceId:myDeviceId,registeredAt:new Date().toISOString()});
+  }).then(function(res){
+    if(!res)return; // already returned above
+    myName=regInput.trim();
+    localStorage.setItem("wh_user_name",myName);
+    regScreen=false;
+    render();
+    startPolling();
+  }).catch(function(){
+    regStatus="error";render();
+  });
+}
+
+// ── registration screen ───────────────────────────────────────
+function buildRegScreen(){
+  var btnBg=regInput.trim().length>=2?"#185FA5":"#94a3b8";
+  var msg="";
+  if(regStatus==="checking") msg='<div style="color:#854d0e;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Checking name availability…</div>';
+  else if(regStatus==="saving") msg='<div style="color:#166534;background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Registering your name…</div>';
+  else if(regStatus==="taken") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">This name is already taken. Please choose a different name.</div>';
+  else if(regStatus==="short") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Name must be at least 2 characters.</div>';
+  else if(regStatus==="error") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Could not connect. Check your internet and try again.</div>';
+
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
+    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px">'+
+      '<div style="text-align:center;margin-bottom:24px">'+
+        '<div style="font-size:40px;margin-bottom:12px">🏭</div>'+
+        '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:6px">Warehouse Checks</div>'+
+        '<div style="font-size:14px;color:#64748b">Welcome! Choose your name to get started.</div>'+
+      '</div>'+
+      '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#854d0e">'+
+        '<strong>Important:</strong> Your name cannot be changed after registration, and no one else can use the same name.'+
+      '</div>'+
+      msg+
+      '<label style="display:block;font-weight:600;font-size:13px;margin-bottom:7px;color:#475569">Your name</label>'+
+      '<input id="reg-input" value="'+regInput.replace(/"/g,"&quot;")+'" placeholder="e.g. John Smith" autocomplete="name" autocapitalize="words" '+
+        'style="width:100%;padding:13px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:16px;color:#1e293b;background:#fff;outline:none;margin-bottom:16px"/>'+
+      '<button id="reg-btn" style="width:100%;padding:14px;border-radius:10px;border:none;background:'+btnBg+';color:#fff;font-size:16px;font-weight:600">'+
+        (regStatus==="checking"||regStatus==="saving"?"Please wait…":"Register my name")+
+      '</button>'+
+    '</div>'+
+  '</div>';
+}
+
+// ── status ────────────────────────────────────────────────────
+function getStatus(site,type,hr,ds){
+  var key=ckKey(ds,site,type,hr),entry=checks[key],isToday=(ds===dstr(now));
+  if(entry){
+    var logTime=new Date(entry.loggedAt);
+    var minsLate=(logTime.getHours()*60+logTime.getMinutes())-hr*60;
+    return minsLate>15?{s:"overdue",entry:entry}:{s:"done",entry:entry};
+  }
+  if(isToday){
+    var diff=now.getHours()*60+now.getMinutes()-hr*60;
+    if(diff>15)  return{s:"missed",  entry:null};
+    if(diff>=-10)return{s:"due",     entry:null};
+    return{s:"upcoming",entry:null};
+  }
+  return{s:"missed",entry:null};
+}
+
+function canLogCheck(site,type,hr,ds){
+  var res=getStatus(site,type,hr,ds);
+  if(!res||res.s==="done"||res.s==="overdue")return false;
+  if(ds!==dstr(now))return false;
+  var diff=now.getHours()*60+now.getMinutes()-hr*60;
+  return diff>=-15;
+}
+
+function getStats(site,ds){
+  if(!ds)ds=dstr(now);
+  var sites=site?[site]:SITES;
+  var done=0,overdue=0,missed=0,due=0,upcoming=0,total=0;
+  for(var i=0;i<sites.length;i++){
+    var s=sites[i],tk=Object.keys(SCH[s]);
+    for(var j=0;j<tk.length;j++){
+      var hrs=SCH[s][tk[j]];
+      for(var k=0;k<hrs.length;k++){
+        total++;
+        var st=getStatus(s,tk[j],hrs[k],ds).s;
+        if(st==="done")done++;
+        else if(st==="overdue")overdue++;
+        else if(st==="missed")missed++;
+        else if(st==="due")due++;
+        else upcoming++;
+      }
+    }
+  }
+  return{done:done,overdue:overdue,missed:missed,due:due,upcoming:upcoming,total:total};
+}
+
+function badge(s){var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;return'<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';}
+
+// ── check row ─────────────────────────────────────────────────
+function buildTypeRow(site,type,hr,ds){
+  var res=getStatus(site,type,hr,ds),s=res.s,entry=res.entry;
+  var isToday=(ds===dstr(now));
+  var canLog=canLogCheck(site,type,hr,ds);
+  var isLogged=(s==="done"||s==="overdue");
+  var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;
+  var sub="";
+  if(entry){
+    var t=new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">By '+entry.name+' &middot; '+t+(s==="overdue"?' <span style="color:#c2410c">(late)</span>':'')+'</div>';
+  } else if(s==="missed"){
+    sub='<div style="font-size:12px;color:#991b1b;margin-top:2px">Not completed</div>';
+  } else if(s==="due"){
+    sub='<div style="font-size:12px;color:#ca8a04;margin-top:2px">Tap to log now</div>';
+  } else if(s==="upcoming"&&canLog){
+    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">Ready &mdash; tap to log early</div>';
+  } else if(s==="upcoming"){
+    var diff=now.getHours()*60+now.getMinutes()-hr*60;
+    sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+Math.abs(diff+15)+' min</div>';
+  }
+  var rightSide="";
+  if(isLogged&&isToday){
+    rightSide='<div style="display:flex;align-items:center;gap:6px">'+
+      '<button data-edit="'+site+'||'+type+'||'+hr+'||'+ds+'" style="width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">&#9998;</button>'+
+      badge(s)+'</div>';
+  } else {
+    rightSide=badge(s);
+  }
+  var logAttr=canLog?'data-log="'+site+'||'+type+'||'+hr+'||'+ds+'"':'';
+  return '<div '+logAttr+' style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;border:1px solid '+m.rowBdr+';background:'+m.rowBg+';cursor:'+(canLog?"pointer":"default")+';margin-bottom:6px">'+
+    '<div style="flex:1"><div style="font-weight:'+(s==="done"?"400":"500")+';font-size:14px;color:'+(s==="done"?"#94a3b8":"#1e293b")+'">'+CHECK_CFG[type].label+'</div>'+sub+'</div>'+rightSide+'</div>';
+}
+
+// ── time blocks ───────────────────────────────────────────────
+function buildTimeBlocks(site,ds){
+  var allHours={},typeKeys=Object.keys(SCH[site]);
+  for(var i=0;i<typeKeys.length;i++){var hrs=SCH[site][typeKeys[i]];for(var j=0;j<hrs.length;j++)allHours[hrs[j]]=true;}
+  var sortedHours=Object.keys(allHours).map(Number).sort(function(a,b){return a-b;});
+  var html="";
+  for(var hi=0;hi<sortedHours.length;hi++){
+    var hr=sortedHours[hi];
+    var typesAtHour=typeKeys.filter(function(type){return SCH[site][type].indexOf(hr)>=0;});
+    if(!typesAtHour.length)continue;
+    var statuses=typesAtHour.map(function(type){return getStatus(site,type,hr,ds).s;});
+    var hasMissed=statuses.indexOf("missed")>=0,hasOverdue=statuses.indexOf("overdue")>=0,
+        hasDue=statuses.indexOf("due")>=0,allDone=statuses.every(function(s){return s==="done";});
+    var hStyle=hasMissed?STATUS_STYLE.missed:hasOverdue?STATUS_STYLE.overdue:hasDue?STATUS_STYLE.due:allDone?STATUS_STYLE.done:{bg:"#f8fafc",c:"#475569",rowBdr:"#e2e8f0"};
+    html+='<div style="margin-bottom:14px">';
+    html+='<div style="display:flex;align-items:center;gap:8px;background:'+hStyle.bg+';border:1px solid '+hStyle.rowBdr+';border-radius:10px 10px 0 0;padding:9px 14px;font-size:14px;font-weight:700;color:'+hStyle.c+'">';
+    html+=fmtH(hr)+' <span style="font-size:12px;font-weight:400;opacity:0.75">&mdash; '+typesAtHour.length+' check'+(typesAtHour.length>1?'s':'')+'</span></div>';
+    html+='<div style="border:1px solid '+hStyle.rowBdr+';border-top:none;border-radius:0 0 10px 10px;padding:8px 8px 2px;background:#fff">';
+    for(var ti=0;ti<typesAtHour.length;ti++)html+=buildTypeRow(site,typesAtHour[ti],hr,ds);
+    html+='</div></div>';
+  }
+  return html;
+}
+
+// ── overview ──────────────────────────────────────────────────
+function statBox(v,c,l){return'<div><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
+function siteStatBox(v,c,l){return'<div style="background:rgba(255,255,255,0.8);border-radius:10px;border:1px solid rgba(0,0,0,0.08);padding:8px 4px;text-align:center"><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
+
+function buildOverview(){
+  var st=getStats(null,dstr(now));
+  var html='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:14px">';
+  html+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">Today &mdash; '+now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center">';
+  html+=statBox(st.total,"#1e293b","Total")+statBox(st.done,"#16a34a","Done")+statBox(st.due,"#854d0e","Due")+statBox(st.missed,"#991b1b","Missed")+statBox(st.overdue,"#c2410c","Overdue");
+  html+='</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+  for(var i=0;i<SITES.length;i++){
+    var site=SITES[i],s=getStats(site),c=SITE_CFG[site];
+    var p=s.total>0?Math.round((s.done/s.total)*100):100;
+    var barCol=s.missed>0?"#ef4444":s.overdue>0?"#f97316":c.color;
+    var bdr=(s.missed>0||s.overdue>0)?"1.5px solid #fca5a5":"1px solid #e2e8f0";
+    html+='<div data-gotosite="'+site+'" style="background:#fff;border-radius:14px;border:'+bdr+';padding:12px;cursor:pointer;border-left:4px solid '+c.color+'">';
+    html+='<div style="font-weight:600;font-size:15px;color:'+c.color+';margin-bottom:6px">'+site+'</div>';
+    html+='<div style="height:5px;background:#f1f5f9;border-radius:3px;margin-bottom:8px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+barCol+';border-radius:3px"></div></div>';
+    html+='<div style="font-size:11px;color:#64748b;line-height:1.8"><span style="color:#16a34a;font-weight:600">'+s.done+'</span> done';
+    if(s.due>0)    html+=' &middot; <span style="color:#854d0e;font-weight:600">'+s.due+'</span> due';
+    if(s.missed>0) html+=' &middot; <span style="color:#991b1b;font-weight:600">'+s.missed+'</span> missed';
+    if(s.overdue>0)html+=' &middot; <span style="color:#c2410c;font-weight:600">'+s.overdue+'</span> overdue';
+    html+='</div></div>';
+  }
+  return html+'</div>';
+}
+
+function buildSite(site){
+  var ds=dstr(now),s=getStats(site,ds),c=SITE_CFG[site];
+  var html='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:16px">';
+  html+=siteStatBox(s.total,c.color,"Total")+siteStatBox(s.done,"#16a34a","Done")+siteStatBox(s.due,"#854d0e","Due")+siteStatBox(s.missed,"#991b1b","Missed")+siteStatBox(s.overdue,"#c2410c","Overdue");
+  return html+'</div>'+buildTimeBlocks(site,ds);
+}
+
+function buildHistory(){
+  var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">Past 7 days</div>';
+  for(var i=1;i<=7;i++){
+    var d=new Date(now);d.setDate(d.getDate()-i);
+    var ds=dstr(d),s=getStats(null,ds);
+    var pct=s.total>0?Math.round((s.done/s.total)*100):0;
+    var col=pct>=90?"#16a34a":pct>=60?"#d97706":"#dc2626";
+    var bar=pct>=90?"#22c55e":pct>=60?"#f59e0b":"#ef4444";
+    html+='<div data-histday="'+ds+'" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:14px;margin-bottom:10px;cursor:pointer">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600;font-size:15px">'+d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})+'</span><span style="font-weight:700;font-size:17px;color:'+col+'">'+pct+'%</span></div>';
+    html+='<div style="height:5px;background:#f1f5f9;border-radius:3px;margin-bottom:10px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+bar+';border-radius:3px"></div></div>';
+    html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
+    html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
+    if(s.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
+    if(s.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' overdue</span>';
+    html+='</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+    for(var si=0;si<SITES.length;si++){
+      var site=SITES[si],sc=getStats(site,ds),c=SITE_CFG[site];
+      var sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
+      html+='<div style="background:'+c.bg+';border-radius:8px;padding:8px"><div style="font-weight:600;font-size:12px;color:'+c.color+';margin-bottom:3px">'+site+'</div>';
+      html+='<div style="font-size:11px;color:'+c.color+'">'+sc.done+'/'+sc.total+' &middot; '+sp+'%';
+      if(sc.missed>0) html+=' &middot; <span style="color:#991b1b">'+sc.missed+'M</span>';
+      if(sc.overdue>0)html+=' &middot; <span style="color:#c2410c">'+sc.overdue+'OD</span>';
+      html+='</div></div>';
+    }
+    html+='</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">Tap for full details &rarr;</div></div>';
+  }
+  return html;
+}
+
+function buildHistoryDetail(ds){
+  var d=new Date(ds+"T12:00:00"),s=getStats(null,ds),pct=s.total>0?Math.round((s.done/s.total)*100):0;
+  var html='<div id="back-btn" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:8px 14px;border-radius:20px;border:1px solid #e2e8f0;background:#fff;font-size:13px;font-weight:600;color:#475569;cursor:pointer">&larr; Back</div>';
+  html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px">';
+  html+='<div style="font-weight:700;font-size:16px;margin-bottom:8px">'+d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
+  if(s.missed>0) html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
+  if(s.overdue>0)html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' overdue</span>';
+  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#475569">'+pct+'% complete</span></div></div>';
+  for(var i=0;i<SITES.length;i++){
+    var site=SITES[i],c=SITE_CFG[site],sc=getStats(site,ds),sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
+    html+='<div style="margin-bottom:24px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+    html+='<div style="font-size:16px;font-weight:700;color:'+c.color+'">'+site+'</div>';
+    html+='<div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+c.bg+';color:'+c.color+'">'+sp+'%</span>';
+    if(sc.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+sc.missed+'M</span>';
+    if(sc.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+sc.overdue+'OD</span>';
+    html+='</div></div>'+buildTimeBlocks(site,ds)+'</div>';
+  }
+  return html;
+}
+
+// ── log/edit modal ─────────────────────────────────────────────
+function buildModal(){
+  if(!modal)return"";
+  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds,c=SITE_CFG[site];
+  var infoBar='<div style="font-size:13px;color:#64748b;background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:16px"><span style="color:'+c.color+';font-weight:600">'+site+'</span> &mdash; '+CHECK_CFG[type].label+' &mdash; '+fmtH(hr)+'</div>';
+  var wrap='<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
+    '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
+    '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>';
+
+  if(modal.mode==="edit"){
+    var entry=checks[ckKey(ds,site,type,hr)];
+    var logTime=entry?new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+    var isOwner=entry&&myName&&myName.trim().toLowerCase()===entry.name.trim().toLowerCase();
+    wrap+='<div style="font-weight:700;font-size:18px;margin-bottom:5px">Edit log</div>'+infoBar;
+    wrap+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:16px">';
+    wrap+='<div style="font-size:12px;color:#64748b;margin-bottom:3px">Logged by</div>';
+    wrap+='<div style="font-weight:600;font-size:15px;color:#166534">'+(entry?entry.name:"&mdash;")+'</div>';
+    wrap+='<div style="font-size:12px;color:#64748b;margin-top:2px">at '+logTime+'</div></div>';
+    wrap+='<div style="display:flex;flex-direction:column;gap:10px">';
+    if(isOwner){
+      wrap+='<button id="relog-btn" style="width:100%;padding:13px;border-radius:10px;border:none;background:#185FA5;color:#fff;font-size:15px;font-weight:600">&#8635; &nbsp;Log again (replace)</button>';
+      wrap+='<button id="delete-btn" style="width:100%;padding:13px;border-radius:10px;border:1.5px solid #fecdd3;background:#fff1f2;color:#991b1b;font-size:15px;font-weight:600">'+(saving?"Deleting...":"&#10005; &nbsp;Delete this log")+'</button>';
+    } else {
+      wrap+='<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:16px;text-align:center">';
+      wrap+='<div style="font-size:28px;margin-bottom:8px">&#128274;</div>';
+      wrap+='<div style="font-weight:700;font-size:14px;color:#991b1b;margin-bottom:6px">Access restricted</div>';
+      wrap+='<div style="font-size:13px;color:#64748b">Only <span style="font-weight:600;color:#1e293b">'+(entry?entry.name:"the logger")+'</span> can edit or delete this log.</div></div>';
+    }
+    wrap+='<button id="cancel-btn" style="width:100%;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px">Close</button>';
+    wrap+='</div>';
+
+  } else {
+    // log or relog — name is pre-filled from registration, not editable
+    var title=modal.mode==="relog"?"Log again":"Log check";
+    wrap+='<div style="font-weight:700;font-size:18px;margin-bottom:5px">'+title+'</div>'+infoBar;
+    if(modal.mode==="relog"){
+      wrap+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:#c2410c">This will replace the existing log entry.</div>';
+    }
+    // Show who is logging — name is locked, not a text input
+    wrap+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">';
+    wrap+='<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#166534;flex-shrink:0">';
+    wrap+=(myName?myName.charAt(0).toUpperCase():"?")+' </div>';
+    wrap+='<div><div style="font-size:12px;color:#64748b">Logging as</div><div style="font-weight:600;font-size:15px;color:#166534">'+(myName||"Unknown")+'</div></div></div>';
+    wrap+='<div style="display:flex;gap:10px">';
+    wrap+='<button id="cancel-btn" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>';
+    wrap+='<button id="confirm-btn" style="flex:2;padding:13px;border-radius:10px;border:none;background:'+(saving?"#94a3b8":"#185FA5")+';color:#fff;font-size:15px;font-weight:600">'+(saving?"Saving...":"Confirm")+'</button>';
+    wrap+='</div>';
+  }
+  return wrap+'</div></div>';
+}
+
+function buildToasts(){
+  if(!toasts.length)return"";
+  var cm={ok:"#f0fdf4|#166534|#bbf7d0",warn:"#fffbeb|#854d0e|#fde68a",danger:"#fff1f2|#991b1b|#fecdd3"};
+  var html='<div style="padding:0 16px 8px">';
+  for(var i=0;i<toasts.length;i++){var t=toasts[i],p=(cm[t.kind]||cm.ok).split("|");html+='<div style="background:'+p[0]+';border:1px solid '+p[2]+';color:'+p[1]+';border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:6px">'+t.msg+'</div>';}
+  return html+'</div>';
+}
+
+// ── main render ───────────────────────────────────────────────
+function render(){
+  var app=document.getElementById("app");if(!app)return;
+
+  // Show registration screen if no name yet
+  if(regScreen){
+    app.innerHTML=buildRegScreen();
+    var ri=document.getElementById("reg-input");
+    if(ri){
+      ri.addEventListener("input",function(e){regInput=e.target.value;var rb=document.getElementById("reg-btn");if(rb)rb.style.background=regInput.trim().length>=2?"#185FA5":"#94a3b8";});
+      ri.addEventListener("keydown",function(e){if(e.key==="Enter")tryRegister();});
+      if(regStatus===""||regStatus==="taken"||regStatus==="short"||regStatus==="error") ri.focus();
+    }
+    var rb=document.getElementById("reg-btn");
+    if(rb)rb.addEventListener("click",tryRegister);
+    return;
+  }
+
+  var tabs2=["overview"].concat(SITES).concat(["history"]);
+  var tlbls={overview:"Overview",history:"History",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
+  var tabsHtml="";
+  for(var i=0;i<tabs2.length;i++){
+    var t=tabs2[i],act=(tab===t),c=SITE_CFG[t];
+    tabsHtml+='<button data-tab="'+t+'" style="padding:7px 13px;border-radius:20px;font-size:13px;font-weight:'+(act?600:400)+';border:'+(act?(c?'2px solid '+c.color:'1.5px solid #334155'):'1px solid #e2e8f0')+';background:'+(act?(c?c.color:'#334155'):'#fff')+';color:'+(act?'#fff':'#64748b')+';white-space:nowrap;flex-shrink:0">'+tlbls[t]+'</button>';
+  }
+  var contentBg="#f1f5f9";
+  if(SITES.indexOf(tab)>=0)contentBg=SITE_CFG[tab].pageBg;
+  var dotCol=dbStatus==="online"?"#22c55e":dbStatus==="connecting"?"#f59e0b":"#ef4444";
+  var dotTxt=dbStatus==="online"?"Live sync on":dbStatus==="connecting"?"Connecting...":"Sync offline";
+  var connDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+';margin-right:5px"></span>';
+  var notifBar=notifPerm!=="granted"?'<div id="notif-bar" style="background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:12px;color:#854d0e;cursor:pointer;margin-bottom:10px;font-weight:500">Tap here to enable notifications for check reminders</div>':"";
+  var offBanner=dbStatus==="offline"?'<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;font-size:12px;color:#991b1b;margin-bottom:10px;font-weight:500">&#9888; No database connection. Retrying...</div>':"";
+  var content=tab==="overview"?buildOverview():SITES.indexOf(tab)>=0?buildSite(tab):historyDay?buildHistoryDetail(historyDay):buildHistory();
+
+  // User pill in header
+  var userPill='<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:6px 10px">'+
+    '<div style="width:22px;height:22px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#185FA5;flex-shrink:0">'+(myName?myName.charAt(0).toUpperCase():"?")+'</div>'+
+    '<div style="font-size:13px;font-weight:600;color:#1e293b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(myName||"")+'</div>'+
+    '</div>';
+
+  app.innerHTML=
+    '<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px 10px;position:sticky;top:0;z-index:50">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
+        '<div><div style="font-size:17px;font-weight:700;color:#1e293b">Warehouse Checks</div>'+
+        '<div style="font-size:12px;color:#64748b;margin-top:2px">'+connDot+dotTxt+' &nbsp;&middot;&nbsp; '+now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div></div>'+
+        userPill+
+      '</div>'+offBanner+notifBar+
+      '<div class="scroll-x">'+tabsHtml+'</div>'+
+    '</div>'+
+    '<div style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
+    buildToasts()+buildModal();
+
+  // bind tabs
+  var tabBtns=app.querySelectorAll("[data-tab]");
+  for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;render();});})(tabBtns[i]);}
+  // bind log buttons
+  var logBtns=app.querySelectorAll("[data-log]");
+  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(logBtns[i]);}
+  // bind edit buttons
+  var editBtns=app.querySelectorAll("[data-edit]");
+  for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
+  // bind site cards
+  var siteBtns=app.querySelectorAll("[data-gotosite]");
+  for(var i=0;i<siteBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.gotosite;render();});})(siteBtns[i]);}
+  // bind history day cards
+  var hdBtns=app.querySelectorAll("[data-histday]");
+  for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;render();});})(hdBtns[i]);}
+  var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
+  var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
+  var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";render();});
+  var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
+  var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;render();});
+  var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;render();}});
+  var nb=document.getElementById("notif-bar");if(nb)nb.addEventListener("click",function(){if(typeof Notification!=="undefined")Notification.requestPermission().then(function(p){notifPerm=p;render();});});
+}
+
+// ── confirm log ───────────────────────────────────────────────
+function confirmLog(){
+  if(!modal||saving||!myName)return;
+  saving=true;render();
+  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
+  var entry={name:myName,loggedAt:new Date().toISOString()};
+  dbWrite(dbPath(ds,site,type,hr),entry).then(function(){
+    checks[ckKey(ds,site,type,hr)]=entry;
+    saving=false;modal=null;render();
+    addToast(site+" &mdash; "+CHECK_CFG[type].label+" logged","ok",4000);
+  }).catch(function(){saving=false;addToast("Could not save &mdash; check your connection","danger",6000);render();});
+}
+
+// ── delete log ────────────────────────────────────────────────
+function deleteLog(){
+  if(!modal||saving)return;
+  saving=true;render();
+  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
+  dbDelete(dbPath(ds,site,type,hr)).then(function(){
+    delete checks[ckKey(ds,site,type,hr)];
+    saving=false;modal=null;render();
+    addToast("Log deleted","warn",4000);
+  }).catch(function(){saving=false;addToast("Could not delete &mdash; check your connection","danger",6000);render();});
+}
+
+function addToast(msg,kind,ms){if(!ms)ms=8000;var id=Date.now()+Math.random();toasts=toasts.slice(-2).concat([{id:id,msg:msg,kind:kind}]);render();setTimeout(function(){toasts=toasts.filter(function(t){return t.id!==id;});render();},ms);}
+
+function checkAlerts(){
+  var h=now.getHours(),m=now.getMinutes(),ds=dstr(now);
+  function push(title,body,kind){addToast(body,kind,10000);if(notifPerm==="granted"){try{new Notification(title,{body:body});}catch(e){}}}
+  if(m===50){var dh=h+1;for(var i=0;i<SITES.length;i++){var site=SITES[i],tk=Object.keys(SCH[site]);for(var j=0;j<tk.length;j++){var hrs=SCH[site][tk[j]];if(hrs.indexOf(dh)>=0){var nk=nfKeyFn(ds,site,tk[j],dh,"pre"),ck=ckKey(ds,site,tk[j],dh);if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check due soon",site+" - "+CHECK_CFG[tk[j]].label+" due at "+fmtH(dh),"warn");}}}}}
+  if(m===15){for(var i=0;i<SITES.length;i++){var site=SITES[i],tk=Object.keys(SCH[site]);for(var j=0;j<tk.length;j++){var hrs=SCH[site][tk[j]];if(hrs.indexOf(h)>=0){var nk=nfKeyFn(ds,site,tk[j],h,"late"),ck=ckKey(ds,site,tk[j],h);if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check missed!",site+" - "+CHECK_CFG[tk[j]].label+" at "+fmtH(h)+" was not completed","danger");}}}}}
+}
+
+// ── start ─────────────────────────────────────────────────────
+render();
+if(myName){
+  startPolling();
+}
+setInterval(function(){now=new Date();checkAlerts();render();},60000);
+
+</script>
+</body>
+</html>
