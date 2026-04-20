@@ -67,7 +67,7 @@ var SCH = {
 };
 var STATUS_STYLE = {
   done:     {bg:"#dcfce7", c:"#166534", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Done"},
-  overdue:  {bg:"#ffedd5", c:"#c2410c", rowBg:"#fff7ed", rowBdr:"#fed7aa", label:"Overdue"},
+  overdue:  {bg:"#ffedd5", c:"#c2410c", rowBg:"#fff7ed", rowBdr:"#fed7aa", label:"Late"},
   missed:   {bg:"#fee2e2", c:"#991b1b", rowBg:"#fff1f2", rowBdr:"#fecdd3", label:"Missed"},
   due:      {bg:"#fef9c3", c:"#854d0e", rowBg:"#fffbeb", rowBdr:"#fde68a", label:"Due now"},
   upcoming: {bg:"#f1f5f9", c:"#64748b", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Upcoming"}
@@ -310,7 +310,7 @@ function buildOverview(){
   var html='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:14px">';
   html+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">Today &mdash; '+now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div>';
   html+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center">';
-  html+=statBox(st.total,"#1e293b","Total")+statBox(st.done,"#16a34a","Done")+statBox(st.due,"#854d0e","Due")+statBox(st.missed,"#991b1b","Missed")+statBox(st.overdue,"#c2410c","Overdue");
+  html+=statBox(st.total,"#1e293b","Total")+statBox(st.done,"#16a34a","Done")+statBox(st.due,"#854d0e","Due")+statBox(st.missed,"#991b1b","Missed")+statBox(st.overdue,"#c2410c","Late");
   html+='</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   for(var i=0;i<SITES.length;i++){
     var site=SITES[i],s=getStats(site),c=SITE_CFG[site];
@@ -323,7 +323,7 @@ function buildOverview(){
     html+='<div style="font-size:11px;color:#64748b;line-height:1.8"><span style="color:#16a34a;font-weight:600">'+s.done+'</span> done';
     if(s.due>0)    html+=' &middot; <span style="color:#854d0e;font-weight:600">'+s.due+'</span> due';
     if(s.missed>0) html+=' &middot; <span style="color:#991b1b;font-weight:600">'+s.missed+'</span> missed';
-    if(s.overdue>0)html+=' &middot; <span style="color:#c2410c;font-weight:600">'+s.overdue+'</span> overdue';
+    if(s.overdue>0)html+=' &middot; <span style="color:#c2410c;font-weight:600">'+s.overdue+'</span> late';
     html+='</div></div>';
   }
   return html+'</div>';
@@ -332,7 +332,7 @@ function buildOverview(){
 function buildSite(site){
   var ds=dstr(now),s=getStats(site,ds),c=SITE_CFG[site];
   var html='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:16px">';
-  html+=siteStatBox(s.total,c.color,"Total")+siteStatBox(s.done,"#16a34a","Done")+siteStatBox(s.due,"#854d0e","Due")+siteStatBox(s.missed,"#991b1b","Missed")+siteStatBox(s.overdue,"#c2410c","Overdue");
+  html+=siteStatBox(s.total,c.color,"Total")+siteStatBox(s.done,"#16a34a","Done")+siteStatBox(s.due,"#854d0e","Due")+siteStatBox(s.missed,"#991b1b","Missed")+siteStatBox(s.overdue,"#c2410c","Late");
   return html+'</div>'+buildTimeBlocks(site,ds);
 }
 
@@ -350,7 +350,7 @@ function buildHistory(){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
     html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
     if(s.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
-    if(s.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' overdue</span>';
+    if(s.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' late</span>';
     html+='</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
     for(var si=0;si<SITES.length;si++){
       var site=SITES[si],sc=getStats(site,ds),c=SITE_CFG[site];
@@ -358,7 +358,7 @@ function buildHistory(){
       html+='<div style="background:'+c.bg+';border-radius:8px;padding:8px"><div style="font-weight:600;font-size:12px;color:'+c.color+';margin-bottom:3px">'+site+'</div>';
       html+='<div style="font-size:11px;color:'+c.color+'">'+sc.done+'/'+sc.total+' &middot; '+sp+'%';
       if(sc.missed>0) html+=' &middot; <span style="color:#991b1b">'+sc.missed+'M</span>';
-      if(sc.overdue>0)html+=' &middot; <span style="color:#c2410c">'+sc.overdue+'OD</span>';
+      if(sc.overdue>0)html+=' &middot; <span style="color:#c2410c">'+sc.overdue+'L</span>';
       html+='</div></div>';
     }
     html+='</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">Tap for full details &rarr;</div></div>';
@@ -374,7 +374,7 @@ function buildHistoryDetail(ds){
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
   if(s.missed>0) html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
-  if(s.overdue>0)html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' overdue</span>';
+  if(s.overdue>0)html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' late</span>';
   html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#475569">'+pct+'% complete</span></div></div>';
   for(var i=0;i<SITES.length;i++){
     var site=SITES[i],c=SITE_CFG[site],sc=getStats(site,ds),sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
@@ -382,7 +382,7 @@ function buildHistoryDetail(ds){
     html+='<div style="font-size:16px;font-weight:700;color:'+c.color+'">'+site+'</div>';
     html+='<div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+c.bg+';color:'+c.color+'">'+sp+'%</span>';
     if(sc.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+sc.missed+'M</span>';
-    if(sc.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+sc.overdue+'OD</span>';
+    if(sc.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+sc.overdue+'L</span>';
     html+='</div></div>'+buildTimeBlocks(site,ds)+'</div>';
   }
   return html;
