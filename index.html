@@ -27,50 +27,53 @@ function dbRead(path){return fetch(DB_URL+path+".json").then(function(r){return 
 function dbWrite(path,data){return fetch(DB_URL+path+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(function(r){return r.json();});}
 function dbDelete(path){return fetch(DB_URL+path+".json",{method:"DELETE"}).then(function(r){return r.json();});}
 
+// ── Hardcoded first admin ─────────────────────────────────────
+var FIRST_ADMIN = "Nitin J G";
+
 // ── config ────────────────────────────────────────────────────
-var SITES=["Fuji","Koi","Bonsai","Yuzu"];
-var SITE_CFG={
-  Fuji:  {color:"#185FA5",bg:"#dbeafe",abbr:"FU",pageBg:"#eff6ff"},
-  Koi:   {color:"#993C1D",bg:"#fee2e2",abbr:"KO",pageBg:"#fff5f5"},
-  Bonsai:{color:"#0F6E56",bg:"#d1fae5",abbr:"BO",pageBg:"#f0fdf4"},
-  Yuzu:  {color:"#854F0B",bg:"#fef3c7",abbr:"YU",pageBg:"#fffbeb"}
+var SITES = ["Fuji","Koi","Bonsai","Yuzu"];
+var SITE_CFG = {
+  Fuji:   {color:"#185FA5", bg:"#dbeafe", abbr:"FU", pageBg:"#eff6ff"},
+  Koi:    {color:"#993C1D", bg:"#fee2e2", abbr:"KO", pageBg:"#fff5f5"},
+  Bonsai: {color:"#0F6E56", bg:"#d1fae5", abbr:"BO", pageBg:"#f0fdf4"},
+  Yuzu:   {color:"#854F0B", bg:"#fef3c7", abbr:"YU", pageBg:"#fffbeb"}
 };
-var CHECK_CFG={
-  mice:   {label:"Mice activity"},
-  nozzle: {label:"Nozzle check"},
-  temp:   {label:"Temperature"},
-  shutter:{label:"Shutter door"}
+var CHECK_CFG = {
+  mice:    {label:"Mice activity"},
+  nozzle:  {label:"Nozzle check"},
+  temp:    {label:"Temperature"},
+  shutter: {label:"Shutter door"}
 };
-var SHUTTER=[4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
-var SCH={
-  Fuji:{
-    mice:   [6,8,10,12,14,16,18,20,22],
-    nozzle: [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    temp:   [4,8,12,16,20,22],
-    shutter:SHUTTER
+var SHUTTER = [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+var SCH = {
+  Fuji: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    temp:    [4,8,12,16,20,22],
+    shutter: SHUTTER
   },
-  Koi:{
-    mice:   [6,8,10,12,14,16,18,20,22],
-    temp:   [4,8,12,16,20,22],
-    shutter:SHUTTER
+  Koi: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    temp:    [4,8,12,16,20,22],
+    shutter: SHUTTER
   },
-  Bonsai:{
-    mice:   [5,7,9,11,13,15,17,19,21],
-    nozzle: [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    shutter:SHUTTER
+  Bonsai: {
+    mice:    [5,7,9,11,13,15,17,19,21],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    shutter: SHUTTER
   },
-  Yuzu:{
-    mice:   [6,8,10,12,14,16,18,20,22],
-    nozzle: [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    shutter:SHUTTER
+  Yuzu: {
+    mice:    [6,8,10,12,14,16,18,20,22],
+    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
+    shutter: SHUTTER
   }
 };
-var STATUS_STYLE={
-  done:    {bg:"#dcfce7",c:"#166534",rowBg:"#ffffff",rowBdr:"#e2e8f0",label:"Done"},
-  late:    {bg:"#ffedd5",c:"#c2410c",rowBg:"#fff7ed",rowBdr:"#fed7aa",label:"Late"},
-  missed:  {bg:"#fee2e2",c:"#991b1b",rowBg:"#fff1f2",rowBdr:"#fecdd3",label:"Missed"},
-  due:     {bg:"#fef9c3",c:"#854d0e",rowBg:"#fffbeb",rowBdr:"#fde68a",label:"Due now"},
-  upcoming:{bg:"#f1f5f9",c:"#64748b",rowBg:"#ffffff",rowBdr:"#e2e8f0",label:"Upcoming"}
+var STATUS_STYLE = {
+  done:     {bg:"#dcfce7", c:"#166534", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Done"},
+  overdue:  {bg:"#ffedd5", c:"#c2410c", rowBg:"#fff7ed", rowBdr:"#fed7aa", label:"Late"},
+  missed:   {bg:"#fee2e2", c:"#991b1b", rowBg:"#fff1f2", rowBdr:"#fecdd3", label:"Missed"},
+  due:      {bg:"#fef9c3", c:"#854d0e", rowBg:"#fffbeb", rowBdr:"#fde68a", label:"Due now"},
+  upcoming: {bg:"#f1f5f9", c:"#64748b", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Upcoming"}
 };
 
 // ── helpers ───────────────────────────────────────────────────
@@ -84,43 +87,111 @@ function normName(n){return n.trim().toLowerCase().replace(/\s+/g,"_");}
 function genDeviceId(){return"dev_"+Math.random().toString(36).substr(2,9)+Date.now().toString(36);}
 function loadNotified(){try{var r=localStorage.getItem("wh_notified_"+dstr());return r?JSON.parse(r):[];}catch(e){return[];}}
 function saveNotified(a){try{localStorage.setItem("wh_notified_"+dstr(),JSON.stringify(a));}catch(e){}}
+function avatarLetter(name){return name?name.charAt(0).toUpperCase():"?";}
 
 // ── identity ──────────────────────────────────────────────────
-var myDeviceId=localStorage.getItem("wh_device_id")||null;
-var myName=localStorage.getItem("wh_user_name")||null;
-var myRole=localStorage.getItem("wh_user_role")||null; // superadmin | admin | member
-var myStatus=localStorage.getItem("wh_user_status")||null; // approved | pending | rejected
-
+var myDeviceId = localStorage.getItem("wh_device_id") || null;
+var myName     = localStorage.getItem("wh_user_name")  || null;
 if(!myDeviceId){myDeviceId=genDeviceId();localStorage.setItem("wh_device_id",myDeviceId);}
 
-function saveIdentity(name,role,status){
-  myName=name;myRole=role;myStatus=status;
-  localStorage.setItem("wh_user_name",name);
-  localStorage.setItem("wh_user_role",role);
-  localStorage.setItem("wh_user_status",status);
-}
-function isAdmin(){return myRole==="superadmin"||myRole==="admin";}
-function isSuperAdmin(){return myRole==="superadmin";}
+// ── state ─────────────────────────────────────────────────────
+var now         = new Date();
+var tab         = "overview";
+var checks      = {};
+var dbStatus    = "connecting";
+var modal       = null;
+var toasts      = [];
+var saving      = false;
+var notifPerm   = typeof Notification!=="undefined"?Notification.permission:"denied";
+var historyDay  = null;
+var notifiedArr = loadNotified();
 
-// ── app state ─────────────────────────────────────────────────
-var now=new Date();
-var tab="overview";
-var checks={};
-var dbStatus="connecting";
-var modal=null;
-var toasts=[];
-var saving=false;
-var notifPerm=typeof Notification!=="undefined"?Notification.permission:"denied";
-var historyDay=null;
-var notifiedArr=loadNotified();
-var allUsers={};  // all users from Firebase
+// User/admin state
+var myStatus    = null;  // "pending" | "approved" | "admin"
+var allUsers    = {};    // normName -> {displayName, deviceId, registeredAt, status, isAdmin, order}
+var usersLoaded = false;
 
 // Registration state
-var regScreen=!myName;
-var regInput="";
-var regStatus="";
+var regScreen   = !myName;
+var regInput    = "";
+var regStatus   = "";
 
-// ── Firebase load ─────────────────────────────────────────────
+// Admin action state
+var adminAction = null; // {type:"promote"|"remove", key, name}
+
+// ── bootstrap: load user record ───────────────────────────────
+function loadMyStatus(){
+  if(!myName){regScreen=true;render();return;}
+  var key=normName(myName);
+  dbRead("/users/"+key).then(function(rec){
+    if(!rec){
+      // User record missing — re-register
+      regScreen=true;myName=null;
+      localStorage.removeItem("wh_user_name");
+      render();return;
+    }
+    var isFirstAdmin=(myName.trim().toLowerCase()===FIRST_ADMIN.trim().toLowerCase());
+    if(isFirstAdmin&&!rec.isAdmin){
+      // Promote first admin automatically
+      rec.isAdmin=true;rec.status="approved";
+      dbWrite("/users/"+key,rec);
+    }
+    myStatus=rec.isAdmin?"admin":rec.status;
+    render();
+    loadAllUsers();
+    startPolling();
+  }).catch(function(){dbStatus="offline";render();});
+}
+
+function loadAllUsers(){
+  dbRead("/users").then(function(data){
+    allUsers=data||{};
+    usersLoaded=true;
+    render();
+  }).catch(function(){});
+  // Refresh users every 30s
+  setInterval(function(){
+    dbRead("/users").then(function(data){allUsers=data||{};render();}).catch(function(){});
+  },30000);
+}
+
+// ── registration ──────────────────────────────────────────────
+function tryRegister(){
+  var name=regInput.trim();
+  if(!name||name.length<2){regStatus="short";render();return;}
+  regStatus="checking";render();
+  var key=normName(name);
+  dbRead("/users/"+key).then(function(existing){
+    if(existing&&existing.deviceId&&existing.deviceId!==myDeviceId){
+      regStatus="taken";render();return;
+    }
+    regStatus="saving";render();
+    var isFirstAdmin=(name.trim().toLowerCase()===FIRST_ADMIN.trim().toLowerCase());
+    // Count existing users for order
+    dbRead("/users").then(function(allU){
+      var order=Object.keys(allU||{}).length;
+      var rec={
+        displayName:name,
+        deviceId:myDeviceId,
+        registeredAt:new Date().toISOString(),
+        status:isFirstAdmin?"approved":"pending",
+        isAdmin:isFirstAdmin,
+        order:order
+      };
+      return dbWrite("/users/"+key,rec);
+    }).then(function(){
+      myName=name;
+      localStorage.setItem("wh_user_name",myName);
+      regScreen=false;
+      myStatus=isFirstAdmin?"admin":"pending";
+      render();
+      loadAllUsers();
+      if(myStatus!=="pending") startPolling();
+    }).catch(function(){regStatus="error";render();});
+  }).catch(function(){regStatus="error";render();});
+}
+
+// ── data load ─────────────────────────────────────────────────
 function loadData(){
   var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-8));
   dbRead("/checks").then(function(data){
@@ -144,88 +215,72 @@ function loadData(){
     dbStatus="online";render();
   }).catch(function(){dbStatus="offline";render();});
 }
+function startPolling(){loadData();setInterval(loadData,30000);}
 
-function loadUsers(){
-  dbRead("/users").then(function(data){
-    allUsers=data||{};
-    // If already registered, sync status/role from Firebase
-    if(myName){
-      var key=normName(myName);
-      if(allUsers[key]){
-        var u=allUsers[key];
-        if(u.status!==myStatus||u.role!==myRole){
-          saveIdentity(myName,u.role||myRole,u.status||myStatus);
-        }
-        myStatus=u.status;myRole=u.role;
+// ── status ────────────────────────────────────────────────────
+function getStatus(site,type,hr,ds){
+  var key=ckKey(ds,site,type,hr),entry=checks[key],isToday=(ds===dstr(now));
+  if(entry){
+    var logTime=new Date(entry.loggedAt);
+    var minsLate=(logTime.getHours()*60+logTime.getMinutes())-hr*60;
+    return minsLate>15?{s:"overdue",entry:entry}:{s:"done",entry:entry};
+  }
+  if(isToday){
+    var diff=now.getHours()*60+now.getMinutes()-hr*60;
+    if(diff>15)  return{s:"missed",  entry:null};
+    if(diff>=-10)return{s:"due",     entry:null};
+    return{s:"upcoming",entry:null};
+  }
+  return{s:"missed",entry:null};
+}
+function canLogCheck(site,type,hr,ds){
+  var res=getStatus(site,type,hr,ds);
+  if(!res||res.s==="done"||res.s==="overdue")return false;
+  if(ds!==dstr(now))return false;
+  var diff=now.getHours()*60+now.getMinutes()-hr*60;
+  return diff>=-15;
+}
+function getStats(site,ds){
+  if(!ds)ds=dstr(now);
+  var sites=site?[site]:SITES;
+  var done=0,overdue=0,missed=0,due=0,upcoming=0,total=0;
+  for(var i=0;i<sites.length;i++){
+    var s=sites[i],tk=Object.keys(SCH[s]);
+    for(var j=0;j<tk.length;j++){
+      var hrs=SCH[s][tk[j]];
+      for(var k=0;k<hrs.length;k++){
+        total++;
+        var st=getStatus(s,tk[j],hrs[k],ds).s;
+        if(st==="done")done++;
+        else if(st==="overdue")overdue++;
+        else if(st==="missed")missed++;
+        else if(st==="due")due++;
+        else upcoming++;
       }
     }
-    render();
-  }).catch(function(){render();});
+  }
+  return{done:done,overdue:overdue,missed:missed,due:due,upcoming:upcoming,total:total};
 }
 
-function startPolling(){
-  loadData();loadUsers();
-  setInterval(loadData,30000);
-  setInterval(loadUsers,15000); // check user status more frequently
-}
+function badge(s){var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;return'<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';}
 
-// ── registration ──────────────────────────────────────────────
-function tryRegister(){
-  var name=regInput.trim();
-  if(!name||name.length<2){regStatus="short";render();return;}
-  regStatus="checking";render();
-  var key=normName(name);
-  // First check if any users exist (to determine if this is the first/superadmin)
-  dbRead("/users").then(function(existing){
-    var allExisting=existing||{};
-    // Check if name is taken by a different device
-    if(allExisting[key]&&allExisting[key].deviceId&&allExisting[key].deviceId!==myDeviceId){
-      regStatus="taken";render();return null;
-    }
-    // Determine role — first user ever becomes superadmin
-    var keys=Object.keys(allExisting);
-    var isFirst=keys.length===0||(keys.length===1&&keys[0]===key);
-    var role=isFirst?"superadmin":"member";
-    var status=isFirst?"approved":"pending";
-    regStatus="saving";render();
-    return dbWrite("/users/"+key,{
-      displayName:name,
-      deviceId:myDeviceId,
-      role:role,
-      status:status,
-      registeredAt:new Date().toISOString()
-    }).then(function(){
-      saveIdentity(name,role,status);
-      regScreen=false;
-      regInput="";regStatus="";
-      startPolling();
-      render();
-    });
-  }).catch(function(){regStatus="error";render();});
-}
-
-// ── build registration screen ─────────────────────────────────
+// ── screens ───────────────────────────────────────────────────
 function buildRegScreen(){
   var btnBg=regInput.trim().length>=2?"#185FA5":"#94a3b8";
   var msg="";
-  if(regStatus==="checking"||regStatus==="saving")
-    msg='<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px;color:#854d0e;text-align:center;margin-bottom:14px">'+(regStatus==="checking"?"Checking name...":"Registering...")+'</div>';
-  else if(regStatus==="taken")
-    msg='<div style="background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;color:#991b1b;text-align:center;margin-bottom:14px">This name is already taken. Please choose another.</div>';
-  else if(regStatus==="short")
-    msg='<div style="background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;color:#991b1b;text-align:center;margin-bottom:14px">Name must be at least 2 characters.</div>';
-  else if(regStatus==="error")
-    msg='<div style="background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;color:#991b1b;text-align:center;margin-bottom:14px">Connection error. Check your internet and try again.</div>';
-
+  if(regStatus==="checking"||regStatus==="saving") msg='<div style="color:#854d0e;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">'+(regStatus==="checking"?"Checking name...":"Registering...")+'</div>';
+  else if(regStatus==="taken")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">This name is already taken. Please choose another.</div>';
+  else if(regStatus==="short")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Name must be at least 2 characters.</div>';
+  else if(regStatus==="error")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Could not connect. Check your internet and try again.</div>';
   return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
     '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px">'+
       '<div style="text-align:center;margin-bottom:24px">'+
-        '<div style="font-size:40px;margin-bottom:12px">&#127981;</div>'+
+        '<div style="font-size:40px;margin-bottom:12px">🏭</div>'+
         '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:6px">Warehouse Checks</div>'+
         '<div style="font-size:14px;color:#64748b">Register your name to get started</div>'+
       '</div>'+
       '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#854d0e">'+
-        '<strong>Important:</strong> Use your first name or full name. No initials or staff numbers. Your name cannot be changed after registration.'+
+        '<strong>Important:</strong> Use your first name or full name. No staff numbers or initials. Your name cannot be changed after registration.'+
       '</div>'+
       msg+
       '<label style="display:block;font-weight:600;font-size:13px;margin-bottom:7px;color:#475569">Your name</label>'+
@@ -237,113 +292,42 @@ function buildRegScreen(){
     '</div></div>';
 }
 
-// ── pending/rejected screens ──────────────────────────────────
 function buildPendingScreen(){
   return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
-    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:32px 24px;width:100%;max-width:380px;text-align:center">'+
-      '<div style="font-size:48px;margin-bottom:16px">&#9203;</div>'+
-      '<div style="font-weight:700;font-size:18px;margin-bottom:8px">Awaiting approval</div>'+
-      '<div style="font-size:14px;color:#64748b;margin-bottom:20px">Hi <strong>'+myName+'</strong>, your request has been sent to the admin. You will get access once approved.</div>'+
-      '<div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:12px;font-size:13px;color:#64748b">This page will update automatically. Please wait...</div>'+
+    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px;text-align:center">'+
+      '<div style="font-size:48px;margin-bottom:16px">⏳</div>'+
+      '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px">Awaiting approval</div>'+
+      '<div style="font-size:14px;color:#64748b;margin-bottom:20px">Hi <strong>'+myName+'</strong>, your registration is pending. An admin needs to approve your access before you can use the app.</div>'+
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:13px;color:#64748b">Please ask your manager to approve your account.</div>'+
+      '<button id="refresh-btn" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#475569;font-weight:500">&#8635; Refresh status</button>'+
     '</div></div>';
-}
-
-function buildRejectedScreen(){
-  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
-    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:32px 24px;width:100%;max-width:380px;text-align:center">'+
-      '<div style="font-size:48px;margin-bottom:16px">&#128683;</div>'+
-      '<div style="font-weight:700;font-size:18px;margin-bottom:8px;color:#991b1b">Access denied</div>'+
-      '<div style="font-size:14px;color:#64748b">Your request was not approved. Please contact your manager for assistance.</div>'+
-    '</div></div>';
-}
-
-// ── status logic ──────────────────────────────────────────────
-function getStatus(site,type,hr,ds){
-  var key=ckKey(ds,site,type,hr),entry=checks[key],isToday=(ds===dstr(now));
-  if(entry){
-    var logTime=new Date(entry.loggedAt);
-    var minsLate=(logTime.getHours()*60+logTime.getMinutes())-hr*60;
-    return minsLate>15?{s:"late",entry:entry}:{s:"done",entry:entry};
-  }
-  if(isToday){
-    var diff=now.getHours()*60+now.getMinutes()-hr*60;
-    if(diff>15)  return{s:"missed",entry:null};
-    if(diff>=-10)return{s:"due",   entry:null};
-    return{s:"upcoming",entry:null};
-  }
-  return{s:"missed",entry:null};
-}
-
-function canLogCheck(site,type,hr,ds){
-  var res=getStatus(site,type,hr,ds);
-  if(!res||res.s==="done"||res.s==="late")return false;
-  if(ds!==dstr(now))return false;
-  var diff=now.getHours()*60+now.getMinutes()-hr*60;
-  return diff>=-15;
-}
-
-function getStats(site,ds){
-  if(!ds)ds=dstr(now);
-  var sites=site?[site]:SITES;
-  var done=0,late=0,missed=0,due=0,upcoming=0,total=0;
-  for(var i=0;i<sites.length;i++){
-    var s=sites[i],tk=Object.keys(SCH[s]);
-    for(var j=0;j<tk.length;j++){
-      var hrs=SCH[s][tk[j]];
-      for(var k=0;k<hrs.length;k++){
-        total++;
-        var st=getStatus(s,tk[j],hrs[k],ds).s;
-        if(st==="done")done++;
-        else if(st==="late")late++;
-        else if(st==="missed")missed++;
-        else if(st==="due")due++;
-        else upcoming++;
-      }
-    }
-  }
-  return{done:done,late:late,missed:missed,due:due,upcoming:upcoming,total:total};
-}
-
-function badge(s){
-  var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;
-  return'<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';
 }
 
 // ── check row ─────────────────────────────────────────────────
 function buildTypeRow(site,type,hr,ds){
   var res=getStatus(site,type,hr,ds),s=res.s,entry=res.entry;
-  var isToday=(ds===dstr(now));
-  var canLog=canLogCheck(site,type,hr,ds);
-  var isLogged=(s==="done"||s==="late");
+  var isToday=(ds===dstr(now)),canLog=canLogCheck(site,type,hr,ds);
+  var isLogged=(s==="done"||s==="overdue");
   var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;
   var sub="";
   if(entry){
     var t=new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">By '+entry.name+' &middot; '+t+(s==="late"?' <span style="color:#c2410c">(late)</span>':'')+'</div>';
-  } else if(s==="missed"){
-    sub='<div style="font-size:12px;color:#991b1b;margin-top:2px">Not completed</div>';
-  } else if(s==="due"){
-    sub='<div style="font-size:12px;color:#ca8a04;margin-top:2px">Tap to log now</div>';
-  } else if(s==="upcoming"&&canLog){
-    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">Ready &mdash; tap to log early</div>';
-  } else if(s==="upcoming"){
-    var diff=now.getHours()*60+now.getMinutes()-hr*60;
-    sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+Math.abs(diff+15)+' min</div>';
-  }
+    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">By '+entry.name+' &middot; '+t+(s==="overdue"?' <span style="color:#c2410c">(late)</span>':'')+'</div>';
+  } else if(s==="missed"){sub='<div style="font-size:12px;color:#991b1b;margin-top:2px">Not completed</div>';}
+  else if(s==="due"){sub='<div style="font-size:12px;color:#ca8a04;margin-top:2px">Tap to log now</div>';}
+  else if(s==="upcoming"&&canLog){sub='<div style="font-size:12px;color:#64748b;margin-top:2px">Ready &mdash; tap to log early</div>';}
+  else if(s==="upcoming"){var diff=now.getHours()*60+now.getMinutes()-hr*60;sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+Math.abs(diff+15)+' min</div>';}
   var rightSide="";
   if(isLogged&&isToday){
     rightSide='<div style="display:flex;align-items:center;gap:6px">'+
       '<button data-edit="'+site+'||'+type+'||'+hr+'||'+ds+'" style="width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">&#9998;</button>'+
       badge(s)+'</div>';
-  } else {
-    rightSide=badge(s);
-  }
+  } else { rightSide=badge(s); }
   var logAttr=canLog?'data-log="'+site+'||'+type+'||'+hr+'||'+ds+'"':'';
   return '<div '+logAttr+' style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;border:1px solid '+m.rowBdr+';background:'+m.rowBg+';cursor:'+(canLog?"pointer":"default")+';margin-bottom:6px">'+
     '<div style="flex:1"><div style="font-weight:'+(s==="done"?"400":"500")+';font-size:14px;color:'+(s==="done"?"#94a3b8":"#1e293b")+'">'+CHECK_CFG[type].label+'</div>'+sub+'</div>'+rightSide+'</div>';
 }
 
-// ── time blocks ───────────────────────────────────────────────
 function buildTimeBlocks(site,ds){
   var allHours={},typeKeys=Object.keys(SCH[site]);
   for(var i=0;i<typeKeys.length;i++){var hrs=SCH[site][typeKeys[i]];for(var j=0;j<hrs.length;j++)allHours[hrs[j]]=true;}
@@ -354,9 +338,9 @@ function buildTimeBlocks(site,ds){
     var typesAtHour=typeKeys.filter(function(type){return SCH[site][type].indexOf(hr)>=0;});
     if(!typesAtHour.length)continue;
     var statuses=typesAtHour.map(function(type){return getStatus(site,type,hr,ds).s;});
-    var hasMissed=statuses.indexOf("missed")>=0,hasLate=statuses.indexOf("late")>=0,
+    var hasMissed=statuses.indexOf("missed")>=0,hasOverdue=statuses.indexOf("overdue")>=0,
         hasDue=statuses.indexOf("due")>=0,allDone=statuses.every(function(s){return s==="done";});
-    var hStyle=hasMissed?STATUS_STYLE.missed:hasLate?STATUS_STYLE.late:hasDue?STATUS_STYLE.due:allDone?STATUS_STYLE.done:{bg:"#f8fafc",c:"#475569",rowBdr:"#e2e8f0"};
+    var hStyle=hasMissed?STATUS_STYLE.missed:hasOverdue?STATUS_STYLE.overdue:hasDue?STATUS_STYLE.due:allDone?STATUS_STYLE.done:{bg:"#f8fafc",c:"#475569",rowBdr:"#e2e8f0"};
     html+='<div style="margin-bottom:14px">';
     html+='<div style="display:flex;align-items:center;gap:8px;background:'+hStyle.bg+';border:1px solid '+hStyle.rowBdr+';border-radius:10px 10px 0 0;padding:9px 14px;font-size:14px;font-weight:700;color:'+hStyle.c+'">';
     html+=fmtH(hr)+' <span style="font-size:12px;font-weight:400;opacity:0.75">&mdash; '+typesAtHour.length+' check'+(typesAtHour.length>1?'s':'')+'</span></div>';
@@ -367,7 +351,6 @@ function buildTimeBlocks(site,ds){
   return html;
 }
 
-// ── overview ──────────────────────────────────────────────────
 function statBox(v,c,l){return'<div><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
 function siteStatBox(v,c,l){return'<div style="background:rgba(255,255,255,0.8);border-radius:10px;border:1px solid rgba(0,0,0,0.08);padding:8px 4px;text-align:center"><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
 
@@ -376,20 +359,20 @@ function buildOverview(){
   var html='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:14px">';
   html+='<div style="font-size:12px;color:#64748b;margin-bottom:10px">Today &mdash; '+now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div>';
   html+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center">';
-  html+=statBox(st.total,"#1e293b","Total")+statBox(st.done,"#16a34a","Done")+statBox(st.due,"#854d0e","Due")+statBox(st.missed,"#991b1b","Missed")+statBox(st.late,"#c2410c","Late");
+  html+=statBox(st.total,"#1e293b","Total")+statBox(st.done,"#16a34a","Done")+statBox(st.due,"#854d0e","Due")+statBox(st.missed,"#991b1b","Missed")+statBox(st.overdue,"#c2410c","Late");
   html+='</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
   for(var i=0;i<SITES.length;i++){
     var site=SITES[i],s=getStats(site),c=SITE_CFG[site];
     var p=s.total>0?Math.round((s.done/s.total)*100):100;
-    var barCol=s.missed>0?"#ef4444":s.late>0?"#f97316":c.color;
-    var bdr=(s.missed>0||s.late>0)?"1.5px solid #fca5a5":"1px solid #e2e8f0";
+    var barCol=s.missed>0?"#ef4444":s.overdue>0?"#f97316":c.color;
+    var bdr=(s.missed>0||s.overdue>0)?"1.5px solid #fca5a5":"1px solid #e2e8f0";
     html+='<div data-gotosite="'+site+'" style="background:#fff;border-radius:14px;border:'+bdr+';padding:12px;cursor:pointer;border-left:4px solid '+c.color+'">';
     html+='<div style="font-weight:600;font-size:15px;color:'+c.color+';margin-bottom:6px">'+site+'</div>';
     html+='<div style="height:5px;background:#f1f5f9;border-radius:3px;margin-bottom:8px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+barCol+';border-radius:3px"></div></div>';
     html+='<div style="font-size:11px;color:#64748b;line-height:1.8"><span style="color:#16a34a;font-weight:600">'+s.done+'</span> done';
-    if(s.due>0)   html+=' &middot; <span style="color:#854d0e;font-weight:600">'+s.due+'</span> due';
-    if(s.missed>0)html+=' &middot; <span style="color:#991b1b;font-weight:600">'+s.missed+'</span> missed';
-    if(s.late>0)  html+=' &middot; <span style="color:#c2410c;font-weight:600">'+s.late+'</span> late';
+    if(s.due>0)    html+=' &middot; <span style="color:#854d0e;font-weight:600">'+s.due+'</span> due';
+    if(s.missed>0) html+=' &middot; <span style="color:#991b1b;font-weight:600">'+s.missed+'</span> missed';
+    if(s.overdue>0)html+=' &middot; <span style="color:#c2410c;font-weight:600">'+s.overdue+'</span> late';
     html+='</div></div>';
   }
   return html+'</div>';
@@ -398,7 +381,7 @@ function buildOverview(){
 function buildSite(site){
   var ds=dstr(now),s=getStats(site,ds),c=SITE_CFG[site];
   var html='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:16px">';
-  html+=siteStatBox(s.total,c.color,"Total")+siteStatBox(s.done,"#16a34a","Done")+siteStatBox(s.due,"#854d0e","Due")+siteStatBox(s.missed,"#991b1b","Missed")+siteStatBox(s.late,"#c2410c","Late");
+  html+=siteStatBox(s.total,c.color,"Total")+siteStatBox(s.done,"#16a34a","Done")+siteStatBox(s.due,"#854d0e","Due")+siteStatBox(s.missed,"#991b1b","Missed")+siteStatBox(s.overdue,"#c2410c","Late");
   return html+'</div>'+buildTimeBlocks(site,ds);
 }
 
@@ -415,16 +398,16 @@ function buildHistory(){
     html+='<div style="height:5px;background:#f1f5f9;border-radius:3px;margin-bottom:10px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+bar+';border-radius:3px"></div></div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
     html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
-    if(s.missed>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
-    if(s.late>0)  html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.late+' late</span>';
+    if(s.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
+    if(s.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' late</span>';
     html+='</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
     for(var si=0;si<SITES.length;si++){
       var site=SITES[si],sc=getStats(site,ds),c=SITE_CFG[site];
       var sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
       html+='<div style="background:'+c.bg+';border-radius:8px;padding:8px"><div style="font-weight:600;font-size:12px;color:'+c.color+';margin-bottom:3px">'+site+'</div>';
       html+='<div style="font-size:11px;color:'+c.color+'">'+sc.done+'/'+sc.total+' &middot; '+sp+'%';
-      if(sc.missed>0)html+=' &middot; <span style="color:#991b1b">'+sc.missed+'M</span>';
-      if(sc.late>0)  html+=' &middot; <span style="color:#c2410c">'+sc.late+'L</span>';
+      if(sc.missed>0) html+=' &middot; <span style="color:#991b1b">'+sc.missed+'M</span>';
+      if(sc.overdue>0)html+=' &middot; <span style="color:#c2410c">'+sc.overdue+'L</span>';
       html+='</div></div>';
     }
     html+='</div><div style="text-align:center;margin-top:10px;font-size:12px;color:#94a3b8">Tap for full details &rarr;</div></div>';
@@ -439,16 +422,16 @@ function buildHistoryDetail(ds){
   html+='<div style="font-weight:700;font-size:16px;margin-bottom:8px">'+d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+'</div>';
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#dcfce7;color:#166534">'+s.done+' done</span>';
-  if(s.missed>0)html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
-  if(s.late>0)  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.late+' late</span>';
+  if(s.missed>0) html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
+  if(s.overdue>0)html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' late</span>';
   html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#475569">'+pct+'% complete</span></div></div>';
   for(var i=0;i<SITES.length;i++){
     var site=SITES[i],c=SITE_CFG[site],sc=getStats(site,ds),sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
     html+='<div style="margin-bottom:24px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
     html+='<div style="font-size:16px;font-weight:700;color:'+c.color+'">'+site+'</div>';
     html+='<div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+c.bg+';color:'+c.color+'">'+sp+'%</span>';
-    if(sc.missed>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+sc.missed+'M</span>';
-    if(sc.late>0)  html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+sc.late+'L</span>';
+    if(sc.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+sc.missed+'M</span>';
+    if(sc.overdue>0)html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#c2410c">'+sc.overdue+'L</span>';
     html+='</div></div>'+buildTimeBlocks(site,ds)+'</div>';
   }
   return html;
@@ -456,139 +439,139 @@ function buildHistoryDetail(ds){
 
 // ── team tab ──────────────────────────────────────────────────
 function buildTeam(){
+  if(!usersLoaded) return '<div style="text-align:center;padding:40px;color:#64748b">Loading team...</div>';
   var admins=[],members=[];
   var keys=Object.keys(allUsers);
+  // Sort by order field
+  keys.sort(function(a,b){return (allUsers[a].order||0)-(allUsers[b].order||0);});
   for(var i=0;i<keys.length;i++){
     var u=allUsers[keys[i]];
-    if(u.status!=="approved")continue;
-    if(u.role==="superadmin"||u.role==="admin") admins.push(u);
+    if(u.status!=="approved"&&!u.isAdmin) continue;
+    if(u.isAdmin) admins.push(u);
     else members.push(u);
   }
-  // Sort alphabetically
-  admins.sort(function(a,b){return a.displayName.localeCompare(b.displayName);});
-  members.sort(function(a,b){return a.displayName.localeCompare(b.displayName);});
+  var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">'+
+    (admins.length+members.length)+' team member'+(admins.length+members.length!==1?'s':'')+' active</div>';
 
-  var html='';
-
-  // Admins section
-  html+='<div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Admins</div>';
-  if(admins.length===0){
-    html+='<div style="font-size:13px;color:#94a3b8;margin-bottom:20px">No admins yet</div>';
-  } else {
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">';
+  if(admins.length>0){
+    html+='<div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Admins</div>';
     for(var i=0;i<admins.length;i++){
       var u=admins[i];
-      var isMe=myName&&u.displayName.trim().toLowerCase()===myName.trim().toLowerCase();
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;'+(i<admins.length-1?'border-bottom:1px solid #f1f5f9;':'')+'">'+
-        '<div style="display:flex;align-items:center;gap:10px">'+
-          '<div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#185FA5;flex-shrink:0">'+u.displayName.charAt(0).toUpperCase()+'</div>'+
-          '<div style="font-weight:600;font-size:15px">'+u.displayName+(isMe?' <span style="font-size:11px;color:#64748b;font-weight:400">(you)</span>':'')+'</div>'+
-        '</div>'+
-        '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#dbeafe;color:#185FA5">Admin</span>'+
-      '</div>';
+      var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
+      html+=buildMemberCard(u,isMe,true);
     }
-    html+='</div>';
   }
-
-  // Members section
-  html+='<div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Team Members</div>';
-  if(members.length===0){
-    html+='<div style="font-size:13px;color:#94a3b8">No team members yet</div>';
-  } else {
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden">';
+  if(members.length>0){
+    html+='<div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;margin-top:16px">Team members</div>';
     for(var i=0;i<members.length;i++){
       var u=members[i];
-      var isMe=myName&&u.displayName.trim().toLowerCase()===myName.trim().toLowerCase();
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:13px 16px;'+(i<members.length-1?'border-bottom:1px solid #f1f5f9;':'')+'">'+
-        '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#475569;flex-shrink:0">'+u.displayName.charAt(0).toUpperCase()+'</div>'+
-        '<div style="font-weight:500;font-size:15px">'+u.displayName+(isMe?' <span style="font-size:11px;color:#64748b;font-weight:400">(you)</span>':'')+'</div>'+
-      '</div>';
+      var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
+      html+=buildMemberCard(u,isMe,false);
     }
-    html+='</div>';
   }
   return html;
 }
 
-// ── admin panel ───────────────────────────────────────────────
+function buildMemberCard(u,isMe,isAdmin){
+  var colors=["#185FA5","#0F6E56","#993C1D","#854F0B","#7C3AED","#0891B2","#BE185D","#15803D"];
+  var idx=u.displayName.charCodeAt(0)%colors.length;
+  var avatarCol=colors[idx];
+  return '<div style="background:#fff;border-radius:14px;border:1px solid '+(isMe?"#185FA5":"#e2e8f0")+';padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px">'+
+    '<div style="width:42px;height:42px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#f1f5f9")+';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:'+(isAdmin?"#fff":avatarCol)+';flex-shrink:0">'+
+      avatarLetter(u.displayName)+
+    '</div>'+
+    '<div style="flex:1">'+
+      '<div style="font-weight:600;font-size:15px;color:#1e293b">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5;font-weight:500">(you)</span>':'')+'</div>'+
+      '<div style="font-size:12px;color:#64748b;margin-top:2px">'+(isAdmin?'&#128081; Admin':'Team member')+'</div>'+
+    '</div>'+
+  '</div>';
+}
+
+// ── admin tab ─────────────────────────────────────────────────
 function buildAdmin(){
+  if(!usersLoaded) return '<div style="text-align:center;padding:40px;color:#64748b">Loading...</div>';
+
   var pending=[],approved=[],admins=[];
   var keys=Object.keys(allUsers);
+  keys.sort(function(a,b){return (allUsers[a].order||0)-(allUsers[b].order||0);});
   for(var i=0;i<keys.length;i++){
     var u=allUsers[keys[i]];u._key=keys[i];
-    if(u.status==="pending") pending.push(u);
-    else if(u.status==="approved"){
-      if(u.role==="superadmin"||u.role==="admin") admins.push(u);
-      else approved.push(u);
-    }
+    if(u.isAdmin) admins.push(u);
+    else if(u.status==="approved") approved.push(u);
+    else if(u.status==="pending") pending.push(u);
   }
-  admins.sort(function(a,b){return a.displayName.localeCompare(b.displayName);});
-  approved.sort(function(a,b){return a.displayName.localeCompare(b.displayName);});
 
-  var html='';
+  var html="";
 
-  // Pending requests
-  html+='<div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Pending Requests '+(pending.length>0?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">'+pending.length+'</span>':'')+'</div>';
+  // Pending approvals
+  html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px">Pending approval <span style="background:#fee2e2;color:#991b1b;font-size:12px;padding:2px 8px;border-radius:20px;margin-left:6px">'+pending.length+'</span></div>';
   if(pending.length===0){
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;text-align:center;font-size:13px;color:#94a3b8;margin-bottom:20px">No pending requests</div>';
+    html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#166534;margin-bottom:20px">No pending requests</div>';
   } else {
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">';
     for(var i=0;i<pending.length;i++){
       var u=pending[i];
-      html+='<div style="padding:13px 16px;'+(i<pending.length-1?'border-bottom:1px solid #f1f5f9;':'')+'">'+
-        '<div style="font-weight:600;font-size:15px;margin-bottom:10px">'+u.displayName+'</div>'+
+      html+='<div style="background:#fff;border-radius:14px;border:1px solid #fecdd3;padding:14px;margin-bottom:10px">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+          '<div style="width:38px;height:38px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-weight:700;color:#991b1b;flex-shrink:0">'+avatarLetter(u.displayName)+'</div>'+
+          '<div><div style="font-weight:600;font-size:15px">'+u.displayName+'</div>'+
+          '<div style="font-size:12px;color:#64748b">Registered '+new Date(u.registeredAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})+'</div></div>'+
+        '</div>'+
         '<div style="display:flex;gap:8px">'+
-          '<button data-approve="'+u._key+'" style="flex:1;padding:9px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:13px;font-weight:600">&#10003; Approve</button>'+
-          '<button data-reject="'+u._key+'" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid #fecdd3;background:#fff1f2;color:#991b1b;font-size:13px;font-weight:600">&#10005; Reject</button>'+
+          '<button data-approve="'+u._key+'" style="flex:1;padding:10px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-size:14px;font-weight:600">&#10003; Approve</button>'+
+          '<button data-reject="'+u._key+'" style="flex:1;padding:10px;border-radius:10px;border:1px solid #fecdd3;background:#fff1f2;color:#991b1b;font-size:14px;font-weight:600">&#10005; Reject</button>'+
         '</div>'+
       '</div>';
     }
-    html+='</div>';
   }
 
-  // Team members
-  html+='<div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Team Members</div>';
-  if(approved.length===0){
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;text-align:center;font-size:13px;color:#94a3b8;margin-bottom:20px">No team members yet</div>';
-  } else {
-    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">';
-    for(var i=0;i<approved.length;i++){
-      var u=approved[i];
-      var isMe=myName&&u.displayName.trim().toLowerCase()===myName.trim().toLowerCase();
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;'+(i<approved.length-1?'border-bottom:1px solid #f1f5f9;':'')+'">'+
-        '<div>'+
-          '<div style="font-weight:500;font-size:15px">'+u.displayName+'</div>'+
-        '</div>'+
-        '<div style="display:flex;gap:6px;align-items:center">';
-      if(isSuperAdmin()&&!isMe){
-        html+='<button data-makeadmin="'+u._key+'" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;font-size:11px;font-weight:600;color:#475569">Make Admin</button>';
-      }
-      if(!isMe){
-        html+='<button data-remove="'+u._key+'" style="padding:5px 10px;border-radius:8px;border:1px solid #fecdd3;background:#fff1f2;font-size:11px;font-weight:600;color:#991b1b">Remove</button>';
-      }
-      html+='</div></div>';
-    }
-    html+='</div>';
+  // Approved members
+  html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px;margin-top:8px">Team members</div>';
+  for(var i=0;i<approved.length;i++){
+    var u=approved[i];
+    var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
+    html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
+      '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700;color:#475569;flex-shrink:0;font-size:14px">'+avatarLetter(u.displayName)+'</div>'+
+      '<div style="flex:1"><div style="font-weight:600;font-size:14px">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5">(you)</span>':'')+'</div></div>'+
+      (!isMe?'<div style="display:flex;gap:6px">'+
+        '<button data-promote="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600">&#128081; Make admin</button>'+
+        '<button data-remove="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #fecdd3;background:#fff1f2;color:#991b1b;font-weight:600">Remove</button>'+
+      '</div>':'')+
+    '</div>';
   }
 
-  // Admins section
-  html+='<div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Admins</div>';
-  html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">';
+  // Admins
+  html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px;margin-top:8px">Admins</div>';
   for(var i=0;i<admins.length;i++){
     var u=admins[i];
-    var isMe=myName&&u.displayName.trim().toLowerCase()===myName.trim().toLowerCase();
-    var isSA=u.role==="superadmin";
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;'+(i<admins.length-1?'border-bottom:1px solid #f1f5f9;':'')+'">'+
-      '<div style="font-weight:600;font-size:15px">'+u.displayName+(isMe?' <span style="font-size:11px;color:#64748b;font-weight:400">(you)</span>':'')+'</div>'+
-      '<div style="display:flex;gap:6px;align-items:center">';
-    if(isSuperAdmin()&&!isMe&&!isSA){
-      html+='<button data-removeadmin="'+u._key+'" style="padding:5px 10px;border-radius:8px;border:1px solid #fecdd3;background:#fff1f2;font-size:11px;font-weight:600;color:#991b1b">Remove Admin</button>';
-    }
-    html+='<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#dbeafe;color:#185FA5">Admin</span>';
-    html+='</div></div>';
+    var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
+    html+='<div style="background:#1e293b;border-radius:14px;padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
+      '<div style="width:36px;height:36px;border-radius:50%;background:#334155;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;font-size:14px">'+avatarLetter(u.displayName)+'</div>'+
+      '<div style="flex:1"><div style="font-weight:600;font-size:14px;color:#fff">'+u.displayName+(isMe?' <span style="font-size:11px;color:#94a3b8">(you)</span>':'')+'</div>'+
+      '<div style="font-size:12px;color:#94a3b8">&#128081; Admin</div></div>'+
+    '</div>';
   }
-  html+='</div>';
 
   return html;
+}
+
+// ── confirm modal ─────────────────────────────────────────────
+function buildAdminConfirm(){
+  if(!adminAction)return"";
+  var title="",msg="",btnCol="",btnTxt="";
+  if(adminAction.type==="promote"){
+    title="Make admin";msg="Are you sure you want to make <strong>"+adminAction.name+"</strong> an admin?";btnCol="#185FA5";btnTxt="Yes, make admin";
+  } else if(adminAction.type==="remove"){
+    title="Remove user";msg="Are you sure you want to remove <strong>"+adminAction.name+"</strong>? They will lose access.";btnCol="#991b1b";btnTxt="Yes, remove";
+  }
+  return '<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
+    '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
+    '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>'+
+    '<div style="font-weight:700;font-size:18px;margin-bottom:10px">'+title+'</div>'+
+    '<div style="font-size:14px;color:#64748b;margin-bottom:20px">'+msg+'</div>'+
+    '<div style="display:flex;gap:10px">'+
+      '<button id="cancel-confirm" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>'+
+      '<button id="do-confirm" style="flex:2;padding:13px;border-radius:10px;border:none;background:'+btnCol+';color:#fff;font-size:15px;font-weight:600">'+(saving?"Please wait...":btnTxt)+'</button>'+
+    '</div></div></div>';
 }
 
 // ── log/edit modal ─────────────────────────────────────────────
@@ -599,7 +582,6 @@ function buildModal(){
   var wrap='<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
     '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
     '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>';
-
   if(modal.mode==="edit"){
     var entry=checks[ckKey(ds,site,type,hr)];
     var logTime=entry?new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
@@ -624,11 +606,9 @@ function buildModal(){
   } else {
     var title=modal.mode==="relog"?"Log again":"Log check";
     wrap+='<div style="font-weight:700;font-size:18px;margin-bottom:5px">'+title+'</div>'+infoBar;
-    if(modal.mode==="relog"){
-      wrap+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:#c2410c">This will replace the existing log entry.</div>';
-    }
+    if(modal.mode==="relog") wrap+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:#c2410c">This will replace the existing log entry.</div>';
     wrap+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">';
-    wrap+='<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#166534;flex-shrink:0">'+(myName?myName.charAt(0).toUpperCase():"?")+'</div>';
+    wrap+='<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#166534;flex-shrink:0">'+avatarLetter(myName)+'</div>';
     wrap+='<div><div style="font-size:12px;color:#64748b">Logging as</div><div style="font-weight:600;font-size:15px;color:#166534">'+(myName||"Unknown")+'</div></div></div>';
     wrap+='<div style="display:flex;gap:10px">';
     wrap+='<button id="cancel-btn" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>';
@@ -646,36 +626,36 @@ function buildToasts(){
   return html+'</div>';
 }
 
-// ── main render ───────────────────────────────────────────────
+// ── render ────────────────────────────────────────────────────
 function render(){
   var app=document.getElementById("app");if(!app)return;
 
   if(regScreen){
     app.innerHTML=buildRegScreen();
     var ri=document.getElementById("reg-input");
-    if(ri){
-      ri.addEventListener("input",function(e){regInput=e.target.value;var rb=document.getElementById("reg-btn");if(rb)rb.style.background=regInput.trim().length>=2?"#185FA5":"#94a3b8";});
-      ri.addEventListener("keydown",function(e){if(e.key==="Enter")tryRegister();});
-      if(regStatus===""||regStatus==="taken"||regStatus==="short"||regStatus==="error")ri.focus();
-    }
+    if(ri){ri.addEventListener("input",function(e){regInput=e.target.value;var rb=document.getElementById("reg-btn");if(rb)rb.style.background=regInput.trim().length>=2?"#185FA5":"#94a3b8";});ri.addEventListener("keydown",function(e){if(e.key==="Enter")tryRegister();});if(regStatus===""||regStatus==="taken"||regStatus==="short"||regStatus==="error")ri.focus();}
     var rb=document.getElementById("reg-btn");if(rb)rb.addEventListener("click",tryRegister);
     return;
   }
 
-  if(myStatus==="pending"){app.innerHTML=buildPendingScreen();return;}
-  if(myStatus==="rejected"){app.innerHTML=buildRejectedScreen();return;}
+  if(myStatus==="pending"){
+    app.innerHTML=buildPendingScreen();
+    var rfb=document.getElementById("refresh-btn");
+    if(rfb)rfb.addEventListener("click",function(){loadMyStatus();});
+    return;
+  }
 
-  // Build tabs
+  var isAdmin=(myStatus==="admin");
   var tabs2=["overview"].concat(SITES).concat(["history","team"]);
-  if(isAdmin())tabs2.push("admin");
-  var tlbls={overview:"Overview",history:"History",team:"Team",admin:"Admin",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
+  if(isAdmin) tabs2.push("admin");
+  var tlbls={overview:"Overview",history:"History",team:"Team",admin:"&#128081; Admin",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
   var tabsHtml="";
   for(var i=0;i<tabs2.length;i++){
     var t=tabs2[i],act=(tab===t),c=SITE_CFG[t];
     var isAdminTab=(t==="admin");
-    var bg=act?(c?c.color:isAdminTab?"#7c3aed":"#334155"):"#fff";
-    var bdr=act?(c?'2px solid '+c.color:isAdminTab?'2px solid #7c3aed':'1.5px solid #334155'):'1px solid #e2e8f0';
-    tabsHtml+='<button data-tab="'+t+'" style="padding:7px 13px;border-radius:20px;font-size:13px;font-weight:'+(act?600:400)+';border:'+bdr+';background:'+bg+';color:'+(act?'#fff':'#64748b')+';white-space:nowrap;flex-shrink:0">'+tlbls[t]+'</button>';
+    var bg=act?(c?c.color:isAdminTab?"#1e293b":"#334155"):"#fff";
+    var bdr=act?(c?"2px solid "+c.color:isAdminTab?"2px solid #1e293b":"1.5px solid #334155"):"1px solid #e2e8f0";
+    tabsHtml+='<button data-tab="'+t+'" style="padding:7px 13px;border-radius:20px;font-size:13px;font-weight:'+(act?600:400)+';border:'+bdr+';background:'+bg+';color:'+(act?"#fff":"#64748b")+';white-space:nowrap;flex-shrink:0">'+tlbls[t]+'</button>';
   }
 
   var contentBg="#f1f5f9";
@@ -688,17 +668,28 @@ function render(){
   var offBanner=dbStatus==="offline"?'<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;font-size:12px;color:#991b1b;margin-bottom:10px;font-weight:500">&#9888; No database connection. Retrying...</div>':"";
 
   var content="";
-  if(tab==="overview")content=buildOverview();
-  else if(SITES.indexOf(tab)>=0)content=buildSite(tab);
-  else if(tab==="history")content=historyDay?buildHistoryDetail(historyDay):buildHistory();
-  else if(tab==="team")content=buildTeam();
-  else if(tab==="admin"&&isAdmin())content=buildAdmin();
+  if(tab==="overview")       content=buildOverview();
+  else if(SITES.indexOf(tab)>=0) content=buildSite(tab);
+  else if(tab==="history")   content=historyDay?buildHistoryDetail(historyDay):buildHistory();
+  else if(tab==="team")      content=buildTeam();
+  else if(tab==="admin")     content=buildAdmin();
 
-  // User pill
+  // Pending count badge on admin tab
+  var pendingCount=0;
+  if(isAdmin&&usersLoaded){var uk=Object.keys(allUsers);for(var i=0;i<uk.length;i++){if(allUsers[uk[i]].status==="pending"&&!allUsers[uk[i]].isAdmin)pendingCount++;}}
+
   var userPill='<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:6px 10px">'+
-    '<div style="width:22px;height:22px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#185FA5;flex-shrink:0">'+(myName?myName.charAt(0).toUpperCase():"?")+'</div>'+
+    '<div style="width:22px;height:22px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#dbeafe")+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+(isAdmin?"#fff":"#185FA5")+';flex-shrink:0">'+avatarLetter(myName)+'</div>'+
     '<div style="font-size:13px;font-weight:600;color:#1e293b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(myName||"")+'</div>'+
-    '</div>';
+    (isAdmin?'<span style="font-size:10px;color:#94a3b8">&#128081;</span>':'')+
+  '</div>';
+
+  // Add pending badge to admin tab button if needed
+  if(pendingCount>0&&isAdmin){
+    tabsHtml=tabsHtml.replace('data-tab="admin"','data-tab="admin" ');
+    // Find admin button and add badge
+    tabsHtml=tabsHtml.replace(/>&#128081; Admin<\/button>/,'>&#128081; Admin <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;min-width:16px;display:inline-block;text-align:center">'+pendingCount+'</span></button>');
+  }
 
   app.innerHTML=
     '<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px 10px;position:sticky;top:0;z-index:50">'+
@@ -710,21 +701,21 @@ function render(){
       '<div class="scroll-x">'+tabsHtml+'</div>'+
     '</div>'+
     '<div style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
-    buildToasts()+buildModal();
+    buildToasts()+buildModal()+buildAdminConfirm();
 
   // bind tabs
   var tabBtns=app.querySelectorAll("[data-tab]");
   for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;render();});})(tabBtns[i]);}
-  // log buttons
+  // bind log buttons
   var logBtns=app.querySelectorAll("[data-log]");
   for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(logBtns[i]);}
-  // edit buttons
+  // bind edit buttons
   var editBtns=app.querySelectorAll("[data-edit]");
   for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
-  // site cards
+  // bind site cards
   var siteBtns=app.querySelectorAll("[data-gotosite]");
   for(var i=0;i<siteBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.gotosite;render();});})(siteBtns[i]);}
-  // history
+  // bind history
   var hdBtns=app.querySelectorAll("[data-histday]");
   for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;render();});})(hdBtns[i]);}
   var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
@@ -733,95 +724,61 @@ function render(){
   var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";render();});
   var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
   var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;render();});
-  var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;render();}});
+  var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;adminAction=null;render();}});
   var nb=document.getElementById("notif-bar");if(nb)nb.addEventListener("click",function(){if(typeof Notification!=="undefined")Notification.requestPermission().then(function(p){notifPerm=p;render();});});
   // admin actions
-  bindAdminButtons();
+  var approveBtns=app.querySelectorAll("[data-approve]");
+  for(var i=0;i<approveBtns.length;i++){(function(el){el.addEventListener("click",function(){approveUser(el.dataset.approve);});})(approveBtns[i]);}
+  var rejectBtns=app.querySelectorAll("[data-reject]");
+  for(var i=0;i<rejectBtns.length;i++){(function(el){el.addEventListener("click",function(){rejectUser(el.dataset.reject);});})(rejectBtns[i]);}
+  var promoteBtns=app.querySelectorAll("[data-promote]");
+  for(var i=0;i<promoteBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"promote",key:el.dataset.promote,name:allUsers[el.dataset.promote].displayName};render();});})(promoteBtns[i]);}
+  var removeBtns=app.querySelectorAll("[data-remove]");
+  for(var i=0;i<removeBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"remove",key:el.dataset.remove,name:allUsers[el.dataset.remove].displayName};render();});})(removeBtns[i]);}
+  var dc=document.getElementById("do-confirm");if(dc)dc.addEventListener("click",function(){if(adminAction)adminAction.type==="promote"?promoteUser(adminAction.key):removeUser(adminAction.key);});
+  var cc=document.getElementById("cancel-confirm");if(cc)cc.addEventListener("click",function(){adminAction=null;render();});
 }
 
 // ── admin actions ─────────────────────────────────────────────
-function bindAdminButtons(){
-  // Approve
-  var approveBtns=document.querySelectorAll("[data-approve]");
-  for(var i=0;i<approveBtns.length;i++){(function(el){el.addEventListener("click",function(){
-    var key=el.dataset.approve;
-    var u=allUsers[key];if(!u)return;
-    dbWrite("/users/"+key+"/status","approved").then(function(){
-      allUsers[key].status="approved";
-      addToast(u.displayName+" approved","ok",4000);render();
-    }).catch(function(){addToast("Error — try again","danger",4000);});
-  });})(approveBtns[i]);}
-
-  // Reject
-  var rejectBtns=document.querySelectorAll("[data-reject]");
-  for(var i=0;i<rejectBtns.length;i++){(function(el){el.addEventListener("click",function(){
-    var key=el.dataset.reject;
-    var u=allUsers[key];if(!u)return;
-    dbWrite("/users/"+key+"/status","rejected").then(function(){
-      allUsers[key].status="rejected";
-      addToast(u.displayName+" rejected","warn",4000);render();
-    }).catch(function(){addToast("Error — try again","danger",4000);});
-  });})(rejectBtns[i]);}
-
-  // Remove member
-  var removeBtns=document.querySelectorAll("[data-remove]");
-  for(var i=0;i<removeBtns.length;i++){(function(el){el.addEventListener("click",function(){
-    var key=el.dataset.remove;
-    var u=allUsers[key];if(!u)return;
-    if(!confirm("Remove "+u.displayName+" from the team?"))return;
-    dbWrite("/users/"+key+"/status","rejected").then(function(){
-      allUsers[key].status="rejected";
-      addToast(u.displayName+" removed","warn",4000);render();
-    }).catch(function(){addToast("Error — try again","danger",4000);});
-  });})(removeBtns[i]);}
-
-  // Make admin (superadmin only)
-  var makeAdminBtns=document.querySelectorAll("[data-makeadmin]");
-  for(var i=0;i<makeAdminBtns.length;i++){(function(el){el.addEventListener("click",function(){
-    var key=el.dataset.makeadmin;
-    var u=allUsers[key];if(!u)return;
-    if(!confirm("Make "+u.displayName+" an admin?"))return;
-    dbWrite("/users/"+key+"/role","admin").then(function(){
-      allUsers[key].role="admin";
-      addToast(u.displayName+" is now an admin","ok",4000);render();
-    }).catch(function(){addToast("Error — try again","danger",4000);});
-  });})(makeAdminBtns[i]);}
-
-  // Remove admin (superadmin only)
-  var removeAdminBtns=document.querySelectorAll("[data-removeadmin]");
-  for(var i=0;i<removeAdminBtns.length;i++){(function(el){el.addEventListener("click",function(){
-    var key=el.dataset.removeadmin;
-    var u=allUsers[key];if(!u)return;
-    if(!confirm("Remove admin rights from "+u.displayName+"?"))return;
-    dbWrite("/users/"+key+"/role","member").then(function(){
-      allUsers[key].role="member";
-      addToast(u.displayName+" is now a team member","warn",4000);render();
-    }).catch(function(){addToast("Error — try again","danger",4000);});
-  });})(removeAdminBtns[i]);}
+function approveUser(key){
+  var u=allUsers[key];if(!u)return;
+  u.status="approved";
+  dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;addToast(u.displayName+" approved","ok",3000);render();}).catch(function(){addToast("Failed to approve","danger",4000);});
+}
+function rejectUser(key){
+  var u=allUsers[key];if(!u)return;
+  dbDelete("/users/"+key).then(function(){delete allUsers[key];addToast("User rejected and removed","warn",3000);render();}).catch(function(){addToast("Failed to reject","danger",4000);});
+}
+function promoteUser(key){
+  saving=true;render();
+  var u=allUsers[key];if(!u){saving=false;return;}
+  u.isAdmin=true;u.status="approved";
+  dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is now an admin","ok",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
+}
+function removeUser(key){
+  saving=true;render();
+  dbDelete("/users/"+key).then(function(){delete allUsers[key];saving=false;adminAction=null;addToast("User removed","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 
-// ── confirm log ───────────────────────────────────────────────
+// ── log/delete ─────────────────────────────────────────────────
 function confirmLog(){
   if(!modal||saving||!myName)return;
   saving=true;render();
   var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
   var entry={name:myName,loggedAt:new Date().toISOString()};
   dbWrite(dbPath(ds,site,type,hr),entry).then(function(){
-    checks[ckKey(ds,site,type,hr)]=entry;
-    saving=false;modal=null;render();
+    checks[ckKey(ds,site,type,hr)]=entry;saving=false;modal=null;render();
     addToast(site+" &mdash; "+CHECK_CFG[type].label+" logged","ok",4000);
-  }).catch(function(){saving=false;addToast("Could not save &mdash; check your connection","danger",6000);render();});
+  }).catch(function(){saving=false;addToast("Could not save","danger",6000);render();});
 }
-
 function deleteLog(){
   if(!modal||saving)return;
   saving=true;render();
   var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
   dbDelete(dbPath(ds,site,type,hr)).then(function(){
-    delete checks[ckKey(ds,site,type,hr)];
-    saving=false;modal=null;render();
+    delete checks[ckKey(ds,site,type,hr)];saving=false;modal=null;render();
     addToast("Log deleted","warn",4000);
-  }).catch(function(){saving=false;addToast("Could not delete &mdash; check your connection","danger",6000);render();});
+  }).catch(function(){saving=false;addToast("Could not delete","danger",6000);render();});
 }
 
 function addToast(msg,kind,ms){if(!ms)ms=8000;var id=Date.now()+Math.random();toasts=toasts.slice(-2).concat([{id:id,msg:msg,kind:kind}]);render();setTimeout(function(){toasts=toasts.filter(function(t){return t.id!==id;});render();},ms);}
@@ -835,12 +792,7 @@ function checkAlerts(){
 
 // ── start ─────────────────────────────────────────────────────
 render();
-if(myName&&myStatus==="approved"){startPolling();}
-else if(myName&&myStatus==="pending"){
-  // Keep polling to detect approval
-  setInterval(loadUsers,15000);
-  loadUsers();
-}
+loadMyStatus();
 setInterval(function(){now=new Date();checkAlerts();render();},60000);
 
 </script>
