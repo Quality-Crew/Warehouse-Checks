@@ -27,7 +27,7 @@ function dbRead(path){return fetch(DB_URL+path+".json").then(function(r){return 
 function dbWrite(path,data){return fetch(DB_URL+path+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(function(r){return r.json();});}
 function dbDelete(path){return fetch(DB_URL+path+".json",{method:"DELETE"}).then(function(r){return r.json();});}
 
-// ── Hardcoded first admin ─────────────────────────────────────
+// ── First admin ───────────────────────────────────────────────
 var FIRST_ADMIN = "Nitin J G";
 
 // ── config ────────────────────────────────────────────────────
@@ -38,36 +38,58 @@ var SITE_CFG = {
   Bonsai: {color:"#0F6E56", bg:"#d1fae5", abbr:"BO", pageBg:"#f0fdf4"},
   Yuzu:   {color:"#854F0B", bg:"#fef3c7", abbr:"YU", pageBg:"#fffbeb"}
 };
+
+// Check types with labels and time windows
+// earlyMins: how many mins BEFORE scheduled time logging opens
+// lateMins:  how many mins AFTER scheduled time before it becomes "missed"
 var CHECK_CFG = {
-  mice:    {label:"Mice activity"},
-  nozzle:  {label:"Nozzle check"},
-  temp:    {label:"Temperature"},
-  shutter: {label:"Shutter door"}
+  mice:    {label:"Mice activity",                      earlyMins:15, lateMins:15},
+  nozzle:  {label:"Nozzle check",                       earlyMins:15, lateMins:15},
+  temp:    {label:"Temperature",                        earlyMins:15, lateMins:15},
+  shutter: {label:"Shutter door",                       earlyMins:15, lateMins:15},
+  thaw:    {label:"Thaw cabinet",                       earlyMins:15, lateMins:60},
+  sani:    {label:"Sani tunnel chemical check",         earlyMins:30, lateMins:60},
+  rice:    {label:"Rice traceability",                  earlyMins:15, lateMins:15}
 };
-var SHUTTER = [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+
+// All schedule times stored as minutes since midnight
+// e.g. 6AM = 360, 2PM = 840, 2:30PM = 870, 8PM = 1200
+function hm(h,m){return h*60+(m||0);}
+
+var SHUTTER_MINS = (function(){var a=[];for(var i=4;i<=22;i++)a.push(hm(i));return a;})();
+var NOZZLE_MINS  = (function(){var a=[];for(var i=4;i<=22;i++)a.push(hm(i));return a;})();
+
 var SCH = {
   Fuji: {
-    mice:    [6,8,10,12,14,16,18,20,22],
-    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    temp:    [4,8,12,16,20,22],
-    shutter: SHUTTER
+    mice:    [hm(6),hm(8),hm(10),hm(12),hm(14),hm(16),hm(18),hm(20),hm(22)],
+    nozzle:  NOZZLE_MINS,
+    temp:    [hm(4),hm(8),hm(12),hm(16),hm(20),hm(22)],
+    shutter: SHUTTER_MINS,
+    sani:    [hm(14,30)]
   },
   Koi: {
-    mice:    [6,8,10,12,14,16,18,20,22],
-    temp:    [4,8,12,16,20,22],
-    shutter: SHUTTER
+    mice:    [hm(6),hm(8),hm(10),hm(12),hm(14),hm(16),hm(18),hm(20),hm(22)],
+    temp:    [hm(4),hm(8),hm(12),hm(16),hm(20),hm(22)],
+    shutter: SHUTTER_MINS,
+    thaw:    [hm(6),hm(14),hm(20)]
   },
   Bonsai: {
-    mice:    [5,7,9,11,13,15,17,19,21],
-    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    shutter: SHUTTER
+    mice:    [hm(5),hm(7),hm(9),hm(11),hm(13),hm(15),hm(17),hm(19),hm(21)],
+    nozzle:  NOZZLE_MINS,
+    shutter: SHUTTER_MINS,
+    thaw:    [hm(6),hm(14),hm(20)],
+    sani:    [hm(14,30)],
+    rice:    [hm(8)]
   },
   Yuzu: {
-    mice:    [6,8,10,12,14,16,18,20,22],
-    nozzle:  [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-    shutter: SHUTTER
+    mice:    [hm(6),hm(8),hm(10),hm(12),hm(14),hm(16),hm(18),hm(20),hm(22)],
+    nozzle:  NOZZLE_MINS,
+    shutter: SHUTTER_MINS,
+    thaw:    [hm(6),hm(14),hm(20)],
+    sani:    [hm(14,30)]
   }
 };
+
 var STATUS_STYLE = {
   done:     {bg:"#dcfce7", c:"#166534", rowBg:"#ffffff", rowBdr:"#e2e8f0", label:"Done"},
   overdue:  {bg:"#ffedd5", c:"#c2410c", rowBg:"#fff7ed", rowBdr:"#fed7aa", label:"Late"},
@@ -78,11 +100,21 @@ var STATUS_STYLE = {
 
 // ── helpers ───────────────────────────────────────────────────
 function dstr(d){if(!d)d=new Date();return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());}
-function fmtH(h){if(h===0)return"12:00 AM";if(h<12)return h+":00 AM";if(h===12)return"12:00 PM";return(h-12)+":00 PM";}
 function pad2(n){return String(n).padStart(2,"0");}
-function ckKey(ds,site,type,hr){return ds+"||"+site+"||"+type+"||"+pad2(hr);}
-function dbPath(ds,site,type,hr){return"/checks/"+ds+"/"+site+"/"+type+"/h"+pad2(hr);}
-function nfKeyFn(ds,site,type,hr,k){return"nf|"+ds+"|"+site+"|"+type+"|"+pad2(hr)+"|"+k;}
+function pad4(n){return String(n).padStart(4,"0");}
+function nowMins(){return now.getHours()*60+now.getMinutes();}
+
+// Format minutes-since-midnight to readable time e.g. 870 → "2:30 PM"
+function fmtMin(m){
+  var h=Math.floor(m/60),mn=m%60;
+  var ampm=h<12?"AM":"PM";
+  var h12=h===0?12:h>12?h-12:h;
+  return h12+":"+(mn===0?"00":pad2(mn))+" "+ampm;
+}
+
+function ckKey(ds,site,type,schedMin){return ds+"||"+site+"||"+type+"||"+pad4(schedMin);}
+function dbPath(ds,site,type,schedMin){return"/checks/"+ds+"/"+site+"/"+type+"/m"+pad4(schedMin);}
+function nfKeyFn(ds,site,type,schedMin,k){return"nf|"+ds+"|"+site+"|"+type+"|"+pad4(schedMin)+"|"+k;}
 function normName(n){return n.trim().toLowerCase().replace(/\s+/g,"_");}
 function genDeviceId(){return"dev_"+Math.random().toString(36).substr(2,9)+Date.now().toString(36);}
 function loadNotified(){try{var r=localStorage.getItem("wh_notified_"+dstr());return r?JSON.parse(r):[];}catch(e){return[];}}
@@ -90,8 +122,8 @@ function saveNotified(a){try{localStorage.setItem("wh_notified_"+dstr(),JSON.str
 function avatarLetter(name){return name?name.charAt(0).toUpperCase():"?";}
 
 // ── identity ──────────────────────────────────────────────────
-var myDeviceId = localStorage.getItem("wh_device_id") || null;
-var myName     = localStorage.getItem("wh_user_name")  || null;
+var myDeviceId = localStorage.getItem("wh_device_id")||null;
+var myName     = localStorage.getItem("wh_user_name") ||null;
 if(!myDeviceId){myDeviceId=genDeviceId();localStorage.setItem("wh_device_id",myDeviceId);}
 
 // ── state ─────────────────────────────────────────────────────
@@ -105,54 +137,33 @@ var saving      = false;
 var notifPerm   = typeof Notification!=="undefined"?Notification.permission:"denied";
 var historyDay  = null;
 var notifiedArr = loadNotified();
-
-// User/admin state
-var myStatus    = null;  // "pending" | "approved" | "admin"
-var allUsers    = {};    // normName -> {displayName, deviceId, registeredAt, status, isAdmin, order}
+var myStatus    = null;
+var allUsers    = {};
 var usersLoaded = false;
-
-// Registration state
 var regScreen   = !myName;
 var regInput    = "";
 var regStatus   = "";
+var adminAction = null;
 
-// Admin action state
-var adminAction = null; // {type:"promote"|"remove", key, name}
-
-// ── bootstrap: load user record ───────────────────────────────
+// ── bootstrap ─────────────────────────────────────────────────
 function loadMyStatus(){
   if(!myName){regScreen=true;render();return;}
   var key=normName(myName);
   dbRead("/users/"+key).then(function(rec){
-    if(!rec){
-      // User record missing — re-register
-      regScreen=true;myName=null;
-      localStorage.removeItem("wh_user_name");
-      render();return;
-    }
+    if(!rec){regScreen=true;myName=null;localStorage.removeItem("wh_user_name");render();return;}
     var isFirstAdmin=(myName.trim().toLowerCase()===FIRST_ADMIN.trim().toLowerCase());
-    if(isFirstAdmin&&!rec.isAdmin){
-      // Promote first admin automatically
-      rec.isAdmin=true;rec.status="approved";
+    if(isFirstAdmin&&(!rec.isAdmin||!rec.isSuperAdmin)){
+      rec.isAdmin=true;rec.status="approved";rec.isSuperAdmin=true;
       dbWrite("/users/"+key,rec);
     }
     myStatus=rec.isAdmin?"admin":rec.status;
-    render();
-    loadAllUsers();
-    startPolling();
+    render();loadAllUsers();startPolling();
   }).catch(function(){dbStatus="offline";render();});
 }
 
 function loadAllUsers(){
-  dbRead("/users").then(function(data){
-    allUsers=data||{};
-    usersLoaded=true;
-    render();
-  }).catch(function(){});
-  // Refresh users every 30s
-  setInterval(function(){
-    dbRead("/users").then(function(data){allUsers=data||{};render();}).catch(function(){});
-  },30000);
+  dbRead("/users").then(function(data){allUsers=data||{};usersLoaded=true;render();}).catch(function(){});
+  setInterval(function(){dbRead("/users").then(function(data){allUsers=data||{};render();}).catch(function(){});},30000);
 }
 
 // ── registration ──────────────────────────────────────────────
@@ -162,31 +173,19 @@ function tryRegister(){
   regStatus="checking";render();
   var key=normName(name);
   dbRead("/users/"+key).then(function(existing){
-    if(existing&&existing.deviceId&&existing.deviceId!==myDeviceId){
-      regStatus="taken";render();return;
-    }
+    if(existing&&existing.deviceId&&existing.deviceId!==myDeviceId){regStatus="taken";render();return;}
     regStatus="saving";render();
     var isFirstAdmin=(name.trim().toLowerCase()===FIRST_ADMIN.trim().toLowerCase());
-    // Count existing users for order
     dbRead("/users").then(function(allU){
       var order=Object.keys(allU||{}).length;
-      var rec={
-        displayName:name,
-        deviceId:myDeviceId,
-        registeredAt:new Date().toISOString(),
-        status:isFirstAdmin?"approved":"pending",
-        isAdmin:isFirstAdmin,
-        order:order
-      };
+      var rec={displayName:name,deviceId:myDeviceId,registeredAt:new Date().toISOString(),
+        status:isFirstAdmin?"approved":"pending",isAdmin:isFirstAdmin,
+        isSuperAdmin:isFirstAdmin,order:order};
       return dbWrite("/users/"+key,rec);
     }).then(function(){
-      myName=name;
-      localStorage.setItem("wh_user_name",myName);
-      regScreen=false;
-      myStatus=isFirstAdmin?"admin":"pending";
-      render();
-      loadAllUsers();
-      if(myStatus!=="pending") startPolling();
+      myName=name;localStorage.setItem("wh_user_name",myName);
+      regScreen=false;myStatus=isFirstAdmin?"admin":"pending";render();
+      loadAllUsers();if(myStatus!=="pending")startPolling();
     }).catch(function(){regStatus="error";render();});
   }).catch(function(){regStatus="error";render();});
 }
@@ -204,10 +203,14 @@ function loadData(){
       for(var j=0;j<sl.length;j++){
         var site=sl[j],types=sites[site]||{},tl=Object.keys(types);
         for(var k=0;k<tl.length;k++){
-          var type=tl[k],hours=types[type]||{},hl=Object.keys(hours);
-          for(var l=0;l<hl.length;l++){
-            var hrKey=hl[l],hr=parseInt(hrKey.replace("h",""));
-            checks[ckKey(ds,site,type,hr)]=hours[hrKey];
+          var type=tl[k],times=types[type]||{},tKeys=Object.keys(times);
+          for(var l=0;l<tKeys.length;l++){
+            var tKey=tKeys[l];
+            // Support both old "h08" format and new "m0480" format
+            var mins;
+            if(tKey.charAt(0)==="m") mins=parseInt(tKey.substr(1));
+            else mins=parseInt(tKey.substr(1))*60; // legacy hour-based
+            checks[ckKey(ds,site,type,mins)]=times[tKey];
           }
         }
       }
@@ -218,28 +221,34 @@ function loadData(){
 function startPolling(){loadData();setInterval(loadData,30000);}
 
 // ── status ────────────────────────────────────────────────────
-function getStatus(site,type,hr,ds){
-  var key=ckKey(ds,site,type,hr),entry=checks[key],isToday=(ds===dstr(now));
+function getStatus(site,type,schedMin,ds){
+  var key=ckKey(ds,site,type,schedMin);
+  var entry=checks[key];
+  var isToday=(ds===dstr(now));
+  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
   if(entry){
     var logTime=new Date(entry.loggedAt);
-    var minsLate=(logTime.getHours()*60+logTime.getMinutes())-hr*60;
-    return minsLate>15?{s:"overdue",entry:entry}:{s:"done",entry:entry};
+    var logMin=logTime.getHours()*60+logTime.getMinutes();
+    var minsLate=logMin-schedMin;
+    return minsLate>win.lateMins?{s:"overdue",entry:entry}:{s:"done",entry:entry};
   }
   if(isToday){
-    var diff=now.getHours()*60+now.getMinutes()-hr*60;
-    if(diff>15)  return{s:"missed",  entry:null};
-    if(diff>=-10)return{s:"due",     entry:null};
+    var diff=nowMins()-schedMin;
+    if(diff>win.lateMins)   return{s:"missed",  entry:null};
+    if(diff>=-win.earlyMins)return{s:"due",     entry:null};
     return{s:"upcoming",entry:null};
   }
   return{s:"missed",entry:null};
 }
-function canLogCheck(site,type,hr,ds){
-  var res=getStatus(site,type,hr,ds);
+
+function canLogCheck(site,type,schedMin,ds){
+  var res=getStatus(site,type,schedMin,ds);
   if(!res||res.s==="done"||res.s==="overdue")return false;
   if(ds!==dstr(now))return false;
-  var diff=now.getHours()*60+now.getMinutes()-hr*60;
-  return diff>=-15;
+  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
+  return (nowMins()-schedMin)>=-win.earlyMins;
 }
+
 function getStats(site,ds){
   if(!ds)ds=dstr(now);
   var sites=site?[site]:SITES;
@@ -247,10 +256,10 @@ function getStats(site,ds){
   for(var i=0;i<sites.length;i++){
     var s=sites[i],tk=Object.keys(SCH[s]);
     for(var j=0;j<tk.length;j++){
-      var hrs=SCH[s][tk[j]];
-      for(var k=0;k<hrs.length;k++){
+      var mins=SCH[s][tk[j]];
+      for(var k=0;k<mins.length;k++){
         total++;
-        var st=getStatus(s,tk[j],hrs[k],ds).s;
+        var st=getStatus(s,tk[j],mins[k],ds).s;
         if(st==="done")done++;
         else if(st==="overdue")overdue++;
         else if(st==="missed")missed++;
@@ -264,51 +273,13 @@ function getStats(site,ds){
 
 function badge(s){var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;return'<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';}
 
-// ── screens ───────────────────────────────────────────────────
-function buildRegScreen(){
-  var btnBg=regInput.trim().length>=2?"#185FA5":"#94a3b8";
-  var msg="";
-  if(regStatus==="checking"||regStatus==="saving") msg='<div style="color:#854d0e;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">'+(regStatus==="checking"?"Checking name...":"Registering...")+'</div>';
-  else if(regStatus==="taken")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">This name is already taken. Please choose another.</div>';
-  else if(regStatus==="short")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Name must be at least 2 characters.</div>';
-  else if(regStatus==="error")  msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Could not connect. Check your internet and try again.</div>';
-  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
-    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px">'+
-      '<div style="text-align:center;margin-bottom:24px">'+
-        '<div style="font-size:40px;margin-bottom:12px">🏭</div>'+
-        '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:6px">Warehouse Checks</div>'+
-        '<div style="font-size:14px;color:#64748b">Register your name to get started</div>'+
-      '</div>'+
-      '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#854d0e">'+
-        '<strong>Important:</strong> Use your first name or full name. No staff numbers or initials. Your name cannot be changed after registration.'+
-      '</div>'+
-      msg+
-      '<label style="display:block;font-weight:600;font-size:13px;margin-bottom:7px;color:#475569">Your name</label>'+
-      '<input id="reg-input" value="'+regInput.replace(/"/g,"&quot;")+'" placeholder="e.g. John Smith" autocomplete="name" autocapitalize="words" '+
-        'style="width:100%;padding:13px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:16px;color:#1e293b;background:#fff;outline:none;margin-bottom:16px"/>'+
-      '<button id="reg-btn" style="width:100%;padding:14px;border-radius:10px;border:none;background:'+btnBg+';color:#fff;font-size:16px;font-weight:600">'+
-        (regStatus==="checking"||regStatus==="saving"?"Please wait...":"Register my name")+
-      '</button>'+
-    '</div></div>';
-}
-
-function buildPendingScreen(){
-  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
-    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px;text-align:center">'+
-      '<div style="font-size:48px;margin-bottom:16px">⏳</div>'+
-      '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px">Awaiting approval</div>'+
-      '<div style="font-size:14px;color:#64748b;margin-bottom:20px">Hi <strong>'+myName+'</strong>, your registration is pending. An admin needs to approve your access before you can use the app.</div>'+
-      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:13px;color:#64748b">Please ask your manager to approve your account.</div>'+
-      '<button id="refresh-btn" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#475569;font-weight:500">&#8635; Refresh status</button>'+
-    '</div></div>';
-}
-
 // ── check row ─────────────────────────────────────────────────
-function buildTypeRow(site,type,hr,ds){
-  var res=getStatus(site,type,hr,ds),s=res.s,entry=res.entry;
-  var isToday=(ds===dstr(now)),canLog=canLogCheck(site,type,hr,ds);
+function buildTypeRow(site,type,schedMin,ds){
+  var res=getStatus(site,type,schedMin,ds),s=res.s,entry=res.entry;
+  var isToday=(ds===dstr(now)),canLog=canLogCheck(site,type,schedMin,ds);
   var isLogged=(s==="done"||s==="overdue");
   var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;
+  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
   var sub="";
   if(entry){
     var t=new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
@@ -316,41 +287,46 @@ function buildTypeRow(site,type,hr,ds){
   } else if(s==="missed"){sub='<div style="font-size:12px;color:#991b1b;margin-top:2px">Not completed</div>';}
   else if(s==="due"){sub='<div style="font-size:12px;color:#ca8a04;margin-top:2px">Tap to log now</div>';}
   else if(s==="upcoming"&&canLog){sub='<div style="font-size:12px;color:#64748b;margin-top:2px">Ready &mdash; tap to log early</div>';}
-  else if(s==="upcoming"){var diff=now.getHours()*60+now.getMinutes()-hr*60;sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+Math.abs(diff+15)+' min</div>';}
+  else if(s==="upcoming"){
+    var minsUntil=(-win.earlyMins)-(nowMins()-schedMin);
+    sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+minsUntil+' min</div>';
+  }
   var rightSide="";
   if(isLogged&&isToday){
     rightSide='<div style="display:flex;align-items:center;gap:6px">'+
-      '<button data-edit="'+site+'||'+type+'||'+hr+'||'+ds+'" style="width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">&#9998;</button>'+
+      '<button data-edit="'+site+'||'+type+'||'+schedMin+'||'+ds+'" style="width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">&#9998;</button>'+
       badge(s)+'</div>';
-  } else { rightSide=badge(s); }
-  var logAttr=canLog?'data-log="'+site+'||'+type+'||'+hr+'||'+ds+'"':'';
+  } else {rightSide=badge(s);}
+  var logAttr=canLog?'data-log="'+site+'||'+type+'||'+schedMin+'||'+ds+'"':'';
   return '<div '+logAttr+' style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;border:1px solid '+m.rowBdr+';background:'+m.rowBg+';cursor:'+(canLog?"pointer":"default")+';margin-bottom:6px">'+
     '<div style="flex:1"><div style="font-weight:'+(s==="done"?"400":"500")+';font-size:14px;color:'+(s==="done"?"#94a3b8":"#1e293b")+'">'+CHECK_CFG[type].label+'</div>'+sub+'</div>'+rightSide+'</div>';
 }
 
+// ── time blocks ───────────────────────────────────────────────
 function buildTimeBlocks(site,ds){
-  var allHours={},typeKeys=Object.keys(SCH[site]);
-  for(var i=0;i<typeKeys.length;i++){var hrs=SCH[site][typeKeys[i]];for(var j=0;j<hrs.length;j++)allHours[hrs[j]]=true;}
-  var sortedHours=Object.keys(allHours).map(Number).sort(function(a,b){return a-b;});
+  var allMins={},typeKeys=Object.keys(SCH[site]);
+  for(var i=0;i<typeKeys.length;i++){var mins=SCH[site][typeKeys[i]];for(var j=0;j<mins.length;j++)allMins[mins[j]]=true;}
+  var sortedMins=Object.keys(allMins).map(Number).sort(function(a,b){return a-b;});
   var html="";
-  for(var hi=0;hi<sortedHours.length;hi++){
-    var hr=sortedHours[hi];
-    var typesAtHour=typeKeys.filter(function(type){return SCH[site][type].indexOf(hr)>=0;});
-    if(!typesAtHour.length)continue;
-    var statuses=typesAtHour.map(function(type){return getStatus(site,type,hr,ds).s;});
+  for(var hi=0;hi<sortedMins.length;hi++){
+    var sm=sortedMins[hi];
+    var typesAtTime=typeKeys.filter(function(type){return SCH[site][type].indexOf(sm)>=0;});
+    if(!typesAtTime.length)continue;
+    var statuses=typesAtTime.map(function(type){return getStatus(site,type,sm,ds).s;});
     var hasMissed=statuses.indexOf("missed")>=0,hasOverdue=statuses.indexOf("overdue")>=0,
         hasDue=statuses.indexOf("due")>=0,allDone=statuses.every(function(s){return s==="done";});
     var hStyle=hasMissed?STATUS_STYLE.missed:hasOverdue?STATUS_STYLE.overdue:hasDue?STATUS_STYLE.due:allDone?STATUS_STYLE.done:{bg:"#f8fafc",c:"#475569",rowBdr:"#e2e8f0"};
     html+='<div style="margin-bottom:14px">';
     html+='<div style="display:flex;align-items:center;gap:8px;background:'+hStyle.bg+';border:1px solid '+hStyle.rowBdr+';border-radius:10px 10px 0 0;padding:9px 14px;font-size:14px;font-weight:700;color:'+hStyle.c+'">';
-    html+=fmtH(hr)+' <span style="font-size:12px;font-weight:400;opacity:0.75">&mdash; '+typesAtHour.length+' check'+(typesAtHour.length>1?'s':'')+'</span></div>';
+    html+=fmtMin(sm)+' <span style="font-size:12px;font-weight:400;opacity:0.75">&mdash; '+typesAtTime.length+' check'+(typesAtTime.length>1?'s':'')+'</span></div>';
     html+='<div style="border:1px solid '+hStyle.rowBdr+';border-top:none;border-radius:0 0 10px 10px;padding:8px 8px 2px;background:#fff">';
-    for(var ti=0;ti<typesAtHour.length;ti++)html+=buildTypeRow(site,typesAtHour[ti],hr,ds);
+    for(var ti=0;ti<typesAtTime.length;ti++)html+=buildTypeRow(site,typesAtTime[ti],sm,ds);
     html+='</div></div>';
   }
   return html;
 }
 
+// ── overview ──────────────────────────────────────────────────
 function statBox(v,c,l){return'<div><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
 function siteStatBox(v,c,l){return'<div style="background:rgba(255,255,255,0.8);border-radius:10px;border:1px solid rgba(0,0,0,0.08);padding:8px 4px;text-align:center"><div style="font-size:18px;font-weight:600;color:'+c+'">'+v+'</div><div style="font-size:10px;color:#64748b">'+l+'</div></div>';}
 
@@ -439,71 +415,42 @@ function buildHistoryDetail(ds){
 
 // ── team tab ──────────────────────────────────────────────────
 function buildTeam(){
-  if(!usersLoaded) return '<div style="text-align:center;padding:40px;color:#64748b">Loading team...</div>';
+  if(!usersLoaded)return'<div style="text-align:center;padding:40px;color:#64748b">Loading team...</div>';
   var admins=[],members=[];
-  var keys=Object.keys(allUsers);
-  // Sort by order field
-  keys.sort(function(a,b){return (allUsers[a].order||0)-(allUsers[b].order||0);});
+  var keys=Object.keys(allUsers).sort(function(a,b){return(allUsers[a].order||0)-(allUsers[b].order||0);});
   for(var i=0;i<keys.length;i++){
     var u=allUsers[keys[i]];
-    if(u.status!=="approved"&&!u.isAdmin) continue;
-    if(u.isAdmin) admins.push(u);
-    else members.push(u);
+    if(u.status!=="approved"&&!u.isAdmin)continue;
+    if(u.isAdmin)admins.push(u);else members.push(u);
   }
-  var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">'+
-    (admins.length+members.length)+' team member'+(admins.length+members.length!==1?'s':'')+' active</div>';
-
+  var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">'+(admins.length+members.length)+' team member'+(admins.length+members.length!==1?'s':'')+' active</div>';
   if(admins.length>0){
     html+='<div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Admins</div>';
-    for(var i=0;i<admins.length;i++){
-      var u=admins[i];
-      var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
-      html+=buildMemberCard(u,isMe,true);
-    }
+    for(var i=0;i<admins.length;i++){var u=admins[i];html+=buildMemberCard(u,(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase()),true);}
   }
   if(members.length>0){
     html+='<div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;margin-top:16px">Team members</div>';
-    for(var i=0;i<members.length;i++){
-      var u=members[i];
-      var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
-      html+=buildMemberCard(u,isMe,false);
-    }
+    for(var i=0;i<members.length;i++){var u=members[i];html+=buildMemberCard(u,(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase()),false);}
   }
   return html;
 }
-
 function buildMemberCard(u,isMe,isAdmin){
   var colors=["#185FA5","#0F6E56","#993C1D","#854F0B","#7C3AED","#0891B2","#BE185D","#15803D"];
-  var idx=u.displayName.charCodeAt(0)%colors.length;
-  var avatarCol=colors[idx];
+  var avatarCol=colors[u.displayName.charCodeAt(0)%colors.length];
   return '<div style="background:#fff;border-radius:14px;border:1px solid '+(isMe?"#185FA5":"#e2e8f0")+';padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px">'+
-    '<div style="width:42px;height:42px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#f1f5f9")+';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:'+(isAdmin?"#fff":avatarCol)+';flex-shrink:0">'+
-      avatarLetter(u.displayName)+
-    '</div>'+
-    '<div style="flex:1">'+
-      '<div style="font-weight:600;font-size:15px;color:#1e293b">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5;font-weight:500">(you)</span>':'')+'</div>'+
-      '<div style="font-size:12px;color:#64748b;margin-top:2px">'+(isAdmin?'Admin':'Team member')+'</div>'+
-    '</div>'+
-  '</div>';
+    '<div style="width:42px;height:42px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#f1f5f9")+';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:'+(isAdmin?"#fff":avatarCol)+';flex-shrink:0">'+avatarLetter(u.displayName)+'</div>'+
+    '<div style="flex:1"><div style="font-weight:600;font-size:15px;color:#1e293b">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5;font-weight:500">(you)</span>':'')+'</div>'+
+    '<div style="font-size:12px;color:#64748b;margin-top:2px">'+(isAdmin?"Admin":"Team member")+'</div></div></div>';
 }
 
 // ── admin tab ─────────────────────────────────────────────────
 function buildAdmin(){
-  if(!usersLoaded) return '<div style="text-align:center;padding:40px;color:#64748b">Loading...</div>';
-
+  if(!usersLoaded)return'<div style="text-align:center;padding:40px;color:#64748b">Loading...</div>';
   var pending=[],approved=[],admins=[];
-  var keys=Object.keys(allUsers);
-  keys.sort(function(a,b){return (allUsers[a].order||0)-(allUsers[b].order||0);});
-  for(var i=0;i<keys.length;i++){
-    var u=allUsers[keys[i]];u._key=keys[i];
-    if(u.isAdmin) admins.push(u);
-    else if(u.status==="approved") approved.push(u);
-    else if(u.status==="pending") pending.push(u);
-  }
-
-  var html="";
-
-  // Pending approvals
+  var keys=Object.keys(allUsers).sort(function(a,b){return(allUsers[a].order||0)-(allUsers[b].order||0);});
+  for(var i=0;i<keys.length;i++){var u=allUsers[keys[i]];u._key=keys[i];if(u.isAdmin)admins.push(u);else if(u.status==="approved")approved.push(u);else if(u.status==="pending")pending.push(u);}
+  var html='';
+  // Pending
   html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px">Pending approval <span style="background:#fee2e2;color:#991b1b;font-size:12px;padding:2px 8px;border-radius:20px;margin-left:6px">'+pending.length+'</span></div>';
   if(pending.length===0){
     html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#166534;margin-bottom:20px">No pending requests</div>';
@@ -514,17 +461,14 @@ function buildAdmin(){
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
           '<div style="width:38px;height:38px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-weight:700;color:#991b1b;flex-shrink:0">'+avatarLetter(u.displayName)+'</div>'+
           '<div><div style="font-weight:600;font-size:15px">'+u.displayName+'</div>'+
-          '<div style="font-size:12px;color:#64748b">Registered '+new Date(u.registeredAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})+'</div></div>'+
-        '</div>'+
+          '<div style="font-size:12px;color:#64748b">Requested '+new Date(u.registeredAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})+'</div></div></div>'+
         '<div style="display:flex;gap:8px">'+
           '<button data-approve="'+u._key+'" style="flex:1;padding:10px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-size:14px;font-weight:600">&#10003; Approve</button>'+
           '<button data-reject="'+u._key+'" style="flex:1;padding:10px;border-radius:10px;border:1px solid #fecdd3;background:#fff1f2;color:#991b1b;font-size:14px;font-weight:600">&#10005; Reject</button>'+
-        '</div>'+
-      '</div>';
+        '</div></div>';
     }
   }
-
-  // Approved members
+  // Team members
   html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px;margin-top:8px">Team members</div>';
   for(var i=0;i<approved.length;i++){
     var u=approved[i];
@@ -533,12 +477,11 @@ function buildAdmin(){
       '<div style="width:36px;height:36px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700;color:#475569;flex-shrink:0;font-size:14px">'+avatarLetter(u.displayName)+'</div>'+
       '<div style="flex:1"><div style="font-weight:600;font-size:14px">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5">(you)</span>':'')+'</div></div>'+
       (!isMe?'<div style="display:flex;gap:6px">'+
-        '<button data-promote="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600">&#128081; Make admin</button>'+
+        '<button data-promote="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600">Make admin</button>'+
         '<button data-remove="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #fecdd3;background:#fff1f2;color:#991b1b;font-weight:600">Remove</button>'+
       '</div>':'')+
     '</div>';
   }
-
   // Admins
   html+='<div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:10px;margin-top:8px">Admins</div>';
   for(var i=0;i<admins.length;i++){
@@ -551,21 +494,52 @@ function buildAdmin(){
       (!isMe&&!u.isSuperAdmin?'<button data-demote="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #475569;background:#334155;color:#94a3b8;font-weight:600;flex-shrink:0">Remove admin</button>':'')+
     '</div>';
   }
-
   return html;
 }
 
-// ── confirm modal ─────────────────────────────────────────────
+// ── screens ───────────────────────────────────────────────────
+function buildRegScreen(){
+  var btnBg=regInput.trim().length>=2?"#185FA5":"#94a3b8";
+  var msg="";
+  if(regStatus==="checking"||regStatus==="saving")msg='<div style="color:#854d0e;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">'+(regStatus==="checking"?"Checking name...":"Registering...")+'</div>';
+  else if(regStatus==="taken") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">This name is already taken. Please choose another.</div>';
+  else if(regStatus==="short") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Name must be at least 2 characters.</div>';
+  else if(regStatus==="error") msg='<div style="color:#991b1b;background:#fee2e2;border:1px solid #fecdd3;border-radius:8px;padding:10px;font-size:13px;text-align:center;margin-bottom:14px">Could not connect. Check your internet and try again.</div>';
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
+    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px">'+
+      '<div style="text-align:center;margin-bottom:24px">'+
+        '<div style="font-size:40px;margin-bottom:12px">🏭</div>'+
+        '<div style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:6px">Warehouse Checks</div>'+
+        '<div style="font-size:14px;color:#64748b">Request access to get started</div>'+
+      '</div>'+
+      '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#854d0e">'+
+        '<strong>Important:</strong> Use your first name or full name. No staff numbers or initials. Your name cannot be changed after registration.'+
+      '</div>'+
+      msg+
+      '<label style="display:block;font-weight:600;font-size:13px;margin-bottom:7px;color:#475569">Your name</label>'+
+      '<input id="reg-input" value="'+regInput.replace(/"/g,"&quot;")+'" placeholder="e.g. John Smith" autocomplete="name" autocapitalize="words" style="width:100%;padding:13px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:16px;color:#1e293b;background:#fff;outline:none;margin-bottom:16px"/>'+
+      '<button id="reg-btn" style="width:100%;padding:14px;border-radius:10px;border:none;background:'+btnBg+';color:#fff;font-size:16px;font-weight:600">'+(regStatus==="checking"||regStatus==="saving"?"Please wait...":"Request access")+'</button>'+
+    '</div></div>';
+}
+
+function buildPendingScreen(){
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f1f5f9">'+
+    '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:28px 24px;width:100%;max-width:380px;text-align:center">'+
+      '<div style="font-size:48px;margin-bottom:16px">&#9203;</div>'+
+      '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px">Awaiting approval</div>'+
+      '<div style="font-size:14px;color:#64748b;margin-bottom:20px">Hi <strong>'+myName+'</strong>, your request is pending. Please ask the team admin to approve your account.</div>'+
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:13px;color:#64748b">Contact your team admin to get access.</div>'+
+      '<button id="refresh-btn" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#475569;font-weight:500">&#8635; Refresh status</button>'+
+    '</div></div>';
+}
+
+// ── modals ────────────────────────────────────────────────────
 function buildAdminConfirm(){
   if(!adminAction)return"";
   var title="",msg="",btnCol="",btnTxt="";
-  if(adminAction.type==="promote"){
-    title="Make admin";msg="Are you sure you want to make <strong>"+adminAction.name+"</strong> an admin?";btnCol="#185FA5";btnTxt="Yes, make admin";
-  } else if(adminAction.type==="remove"){
-    title="Remove user";msg="Are you sure you want to remove <strong>"+adminAction.name+"</strong>? They will lose access.";btnCol="#991b1b";btnTxt="Yes, remove";
-  } else if(adminAction.type==="demote"){
-    title="Remove admin role";msg="Are you sure you want to remove admin access from <strong>"+adminAction.name+"</strong>? They will become a regular team member.";btnCol="#854d0e";btnTxt="Yes, remove admin";
-  }
+  if(adminAction.type==="promote"){title="Make admin";msg="Make <strong>"+adminAction.name+"</strong> an admin?";btnCol="#185FA5";btnTxt="Yes, make admin";}
+  else if(adminAction.type==="remove"){title="Remove user";msg="Remove <strong>"+adminAction.name+"</strong>? They will lose access.";btnCol="#991b1b";btnTxt="Yes, remove";}
+  else if(adminAction.type==="demote"){title="Remove admin";msg="Remove admin access from <strong>"+adminAction.name+"</strong>? They will become a regular team member.";btnCol="#854d0e";btnTxt="Yes, remove admin";}
   return '<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
     '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
     '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>'+
@@ -577,16 +551,15 @@ function buildAdminConfirm(){
     '</div></div></div>';
 }
 
-// ── log/edit modal ─────────────────────────────────────────────
 function buildModal(){
   if(!modal)return"";
-  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds,c=SITE_CFG[site];
-  var infoBar='<div style="font-size:13px;color:#64748b;background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:16px"><span style="color:'+c.color+';font-weight:600">'+site+'</span> &mdash; '+CHECK_CFG[type].label+' &mdash; '+fmtH(hr)+'</div>';
+  var site=modal.site,type=modal.type,schedMin=modal.schedMin,ds=modal.ds,c=SITE_CFG[site];
+  var infoBar='<div style="font-size:13px;color:#64748b;background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:16px"><span style="color:'+c.color+';font-weight:600">'+site+'</span> &mdash; '+CHECK_CFG[type].label+' &mdash; '+fmtMin(schedMin)+'</div>';
   var wrap='<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
     '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
     '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>';
   if(modal.mode==="edit"){
-    var entry=checks[ckKey(ds,site,type,hr)];
+    var entry=checks[ckKey(ds,site,type,schedMin)];
     var logTime=entry?new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
     var isOwner=entry&&myName&&myName.trim().toLowerCase()===entry.name.trim().toLowerCase();
     wrap+='<div style="font-weight:700;font-size:18px;margin-bottom:5px">Edit log</div>'+infoBar;
@@ -599,24 +572,24 @@ function buildModal(){
       wrap+='<button id="relog-btn" style="width:100%;padding:13px;border-radius:10px;border:none;background:#185FA5;color:#fff;font-size:15px;font-weight:600">&#8635; &nbsp;Log again (replace)</button>';
       wrap+='<button id="delete-btn" style="width:100%;padding:13px;border-radius:10px;border:1.5px solid #fecdd3;background:#fff1f2;color:#991b1b;font-size:15px;font-weight:600">'+(saving?"Deleting...":"&#10005; &nbsp;Delete this log")+'</button>';
     } else {
-      wrap+='<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:16px;text-align:center">';
-      wrap+='<div style="font-size:28px;margin-bottom:8px">&#128274;</div>';
-      wrap+='<div style="font-weight:700;font-size:14px;color:#991b1b;margin-bottom:6px">Access restricted</div>';
-      wrap+='<div style="font-size:13px;color:#64748b">Only <span style="font-weight:600;color:#1e293b">'+(entry?entry.name:"the logger")+'</span> can edit or delete this log.</div></div>';
+      wrap+='<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:16px;text-align:center">'+
+        '<div style="font-size:28px;margin-bottom:8px">&#128274;</div>'+
+        '<div style="font-weight:700;font-size:14px;color:#991b1b;margin-bottom:6px">Access restricted</div>'+
+        '<div style="font-size:13px;color:#64748b">Only <span style="font-weight:600;color:#1e293b">'+(entry?entry.name:"the logger")+'</span> can edit or delete this log.</div></div>';
     }
     wrap+='<button id="cancel-btn" style="width:100%;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px">Close</button>';
     wrap+='</div>';
   } else {
     var title=modal.mode==="relog"?"Log again":"Log check";
     wrap+='<div style="font-weight:700;font-size:18px;margin-bottom:5px">'+title+'</div>'+infoBar;
-    if(modal.mode==="relog") wrap+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:#c2410c">This will replace the existing log entry.</div>';
-    wrap+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">';
-    wrap+='<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#166534;flex-shrink:0">'+avatarLetter(myName)+'</div>';
-    wrap+='<div><div style="font-size:12px;color:#64748b">Logging as</div><div style="font-weight:600;font-size:15px;color:#166534">'+(myName||"Unknown")+'</div></div></div>';
-    wrap+='<div style="display:flex;gap:10px">';
-    wrap+='<button id="cancel-btn" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>';
-    wrap+='<button id="confirm-btn" style="flex:2;padding:13px;border-radius:10px;border:none;background:'+(saving?"#94a3b8":"#185FA5")+';color:#fff;font-size:15px;font-weight:600">'+(saving?"Saving...":"Confirm")+'</button>';
-    wrap+='</div>';
+    if(modal.mode==="relog")wrap+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:#c2410c">This will replace the existing log entry.</div>';
+    wrap+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">'+
+      '<div style="width:36px;height:36px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#166534;flex-shrink:0">'+avatarLetter(myName)+'</div>'+
+      '<div><div style="font-size:12px;color:#64748b">Logging as</div><div style="font-weight:600;font-size:15px;color:#166534">'+(myName||"Unknown")+'</div></div></div>';
+    wrap+='<div style="display:flex;gap:10px">'+
+      '<button id="cancel-btn" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>'+
+      '<button id="confirm-btn" style="flex:2;padding:13px;border-radius:10px;border:none;background:'+(saving?"#94a3b8":"#185FA5")+';color:#fff;font-size:15px;font-weight:600">'+(saving?"Saving...":"Confirm")+'</button>'+
+    '</div>';
   }
   return wrap+'</div></div>';
 }
@@ -632,7 +605,6 @@ function buildToasts(){
 // ── render ────────────────────────────────────────────────────
 function render(){
   var app=document.getElementById("app");if(!app)return;
-
   if(regScreen){
     app.innerHTML=buildRegScreen();
     var ri=document.getElementById("reg-input");
@@ -640,17 +612,14 @@ function render(){
     var rb=document.getElementById("reg-btn");if(rb)rb.addEventListener("click",tryRegister);
     return;
   }
-
   if(myStatus==="pending"){
     app.innerHTML=buildPendingScreen();
-    var rfb=document.getElementById("refresh-btn");
-    if(rfb)rfb.addEventListener("click",function(){loadMyStatus();});
+    var rfb=document.getElementById("refresh-btn");if(rfb)rfb.addEventListener("click",function(){loadMyStatus();});
     return;
   }
-
   var isAdmin=(myStatus==="admin");
   var tabs2=["overview"].concat(SITES).concat(["history","team"]);
-  if(isAdmin) tabs2.push("admin");
+  if(isAdmin)tabs2.push("admin");
   var tlbls={overview:"Overview",history:"History",team:"Team",admin:"Admin",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
   var tabsHtml="";
   for(var i=0;i<tabs2.length;i++){
@@ -660,40 +629,27 @@ function render(){
     var bdr=act?(c?"2px solid "+c.color:isAdminTab?"2px solid #1e293b":"1.5px solid #334155"):"1px solid #e2e8f0";
     tabsHtml+='<button data-tab="'+t+'" style="padding:7px 13px;border-radius:20px;font-size:13px;font-weight:'+(act?600:400)+';border:'+bdr+';background:'+bg+';color:'+(act?"#fff":"#64748b")+';white-space:nowrap;flex-shrink:0">'+tlbls[t]+'</button>';
   }
-
+  var pendingCount=0;
+  if(isAdmin&&usersLoaded){var uk=Object.keys(allUsers);for(var i=0;i<uk.length;i++){if(allUsers[uk[i]].status==="pending"&&!allUsers[uk[i]].isAdmin)pendingCount++;}}
+  if(pendingCount>0&&isAdmin){
+    tabsHtml=tabsHtml.replace(/>Admin<\/button>/,'>Admin <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;min-width:16px;display:inline-block;text-align:center">'+pendingCount+'</span></button>');
+  }
   var contentBg="#f1f5f9";
   if(SITES.indexOf(tab)>=0)contentBg=SITE_CFG[tab].pageBg;
-
   var dotCol=dbStatus==="online"?"#22c55e":dbStatus==="connecting"?"#f59e0b":"#ef4444";
   var dotTxt=dbStatus==="online"?"Live sync on":dbStatus==="connecting"?"Connecting...":"Sync offline";
   var connDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+';margin-right:5px"></span>';
   var notifBar=notifPerm!=="granted"?'<div id="notif-bar" style="background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:12px;color:#854d0e;cursor:pointer;margin-bottom:10px;font-weight:500">Tap here to enable notifications for check reminders</div>':"";
   var offBanner=dbStatus==="offline"?'<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;font-size:12px;color:#991b1b;margin-bottom:10px;font-weight:500">&#9888; No database connection. Retrying...</div>':"";
-
   var content="";
-  if(tab==="overview")       content=buildOverview();
-  else if(SITES.indexOf(tab)>=0) content=buildSite(tab);
-  else if(tab==="history")   content=historyDay?buildHistoryDetail(historyDay):buildHistory();
-  else if(tab==="team")      content=buildTeam();
-  else if(tab==="admin")     content=buildAdmin();
-
-  // Pending count badge on admin tab
-  var pendingCount=0;
-  if(isAdmin&&usersLoaded){var uk=Object.keys(allUsers);for(var i=0;i<uk.length;i++){if(allUsers[uk[i]].status==="pending"&&!allUsers[uk[i]].isAdmin)pendingCount++;}}
-
+  if(tab==="overview")content=buildOverview();
+  else if(SITES.indexOf(tab)>=0)content=buildSite(tab);
+  else if(tab==="history")content=historyDay?buildHistoryDetail(historyDay):buildHistory();
+  else if(tab==="team")content=buildTeam();
+  else if(tab==="admin")content=buildAdmin();
   var userPill='<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:6px 10px">'+
     '<div style="width:22px;height:22px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#dbeafe")+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+(isAdmin?"#fff":"#185FA5")+';flex-shrink:0">'+avatarLetter(myName)+'</div>'+
-    '<div style="font-size:13px;font-weight:600;color:#1e293b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(myName||"")+'</div>'+
-    (isAdmin?'<span style="font-size:10px;color:#94a3b8"></span>':'')+
-  '</div>';
-
-  // Add pending badge to admin tab button if needed
-  if(pendingCount>0&&isAdmin){
-    tabsHtml=tabsHtml.replace('data-tab="admin"','data-tab="admin" ');
-    // Find admin button and add badge
-    tabsHtml=tabsHtml.replace(/>Admin<\/button>/,'>Admin <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;min-width:16px;display:inline-block;text-align:center">'+pendingCount+'</span></button>');
-  }
-
+    '<div style="font-size:13px;font-weight:600;color:#1e293b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(myName||"")+'</div></div>';
   app.innerHTML=
     '<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px 10px;position:sticky;top:0;z-index:50">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
@@ -706,30 +662,24 @@ function render(){
     '<div style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
     buildToasts()+buildModal()+buildAdminConfirm();
 
-  // bind tabs
+  // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
   for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;render();});})(tabBtns[i]);}
-  // bind log buttons
   var logBtns=app.querySelectorAll("[data-log]");
-  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(logBtns[i]);}
-  // bind edit buttons
+  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(logBtns[i]);}
   var editBtns=app.querySelectorAll("[data-edit]");
-  for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],hr:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
-  // bind site cards
+  for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
   var siteBtns=app.querySelectorAll("[data-gotosite]");
   for(var i=0;i<siteBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.gotosite;render();});})(siteBtns[i]);}
-  // bind history
   var hdBtns=app.querySelectorAll("[data-histday]");
   for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;render();});})(hdBtns[i]);}
   var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
-  // modal
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
   var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";render();});
   var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
   var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;render();});
   var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;adminAction=null;render();}});
   var nb=document.getElementById("notif-bar");if(nb)nb.addEventListener("click",function(){if(typeof Notification!=="undefined")Notification.requestPermission().then(function(p){notifPerm=p;render();});});
-  // admin actions
   var approveBtns=app.querySelectorAll("[data-approve]");
   for(var i=0;i<approveBtns.length;i++){(function(el){el.addEventListener("click",function(){approveUser(el.dataset.approve);});})(approveBtns[i]);}
   var rejectBtns=app.querySelectorAll("[data-reject]");
@@ -745,68 +695,74 @@ function render(){
 }
 
 // ── admin actions ─────────────────────────────────────────────
-function approveUser(key){
-  var u=allUsers[key];if(!u)return;
-  u.status="approved";
-  dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;addToast(u.displayName+" approved","ok",3000);render();}).catch(function(){addToast("Failed to approve","danger",4000);});
-}
-function rejectUser(key){
-  var u=allUsers[key];if(!u)return;
-  dbDelete("/users/"+key).then(function(){delete allUsers[key];addToast("User rejected and removed","warn",3000);render();}).catch(function(){addToast("Failed to reject","danger",4000);});
-}
+function approveUser(key){var u=allUsers[key];if(!u)return;u.status="approved";dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;addToast(u.displayName+" approved","ok",3000);render();}).catch(function(){addToast("Failed","danger",4000);});}
+function rejectUser(key){dbDelete("/users/"+key).then(function(){delete allUsers[key];addToast("Request rejected","warn",3000);render();}).catch(function(){addToast("Failed","danger",4000);});}
 function promoteUser(key){
-  saving=true;render();
-  var u=allUsers[key];if(!u){saving=false;return;}
+  saving=true;render();var u=allUsers[key];if(!u){saving=false;return;}
   u.isAdmin=true;u.status="approved";
   dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is now an admin","ok",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 function demoteUser(key){
   var u=allUsers[key];
-  if(u&&u.isSuperAdmin){
-    adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;
-  }
-  saving=true;render();
-  if(!u){saving=false;return;}
+  if(u&&u.isSuperAdmin){adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;}
+  saving=true;render();if(!u){saving=false;return;}
   u.isAdmin=false;u.status="approved";
   dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is no longer an admin","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 function removeUser(key){
   var u=allUsers[key];
-  if(u&&u.isSuperAdmin){
-    adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;
-  }
+  if(u&&u.isSuperAdmin){adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;}
   saving=true;render();
   dbDelete("/users/"+key).then(function(){delete allUsers[key];saving=false;adminAction=null;addToast("User removed","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 
-// ── log/delete ─────────────────────────────────────────────────
+// ── log / delete ──────────────────────────────────────────────
 function confirmLog(){
   if(!modal||saving||!myName)return;
   saving=true;render();
-  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
+  var site=modal.site,type=modal.type,schedMin=modal.schedMin,ds=modal.ds;
   var entry={name:myName,loggedAt:new Date().toISOString()};
-  dbWrite(dbPath(ds,site,type,hr),entry).then(function(){
-    checks[ckKey(ds,site,type,hr)]=entry;saving=false;modal=null;render();
+  dbWrite(dbPath(ds,site,type,schedMin),entry).then(function(){
+    checks[ckKey(ds,site,type,schedMin)]=entry;saving=false;modal=null;render();
     addToast(site+" &mdash; "+CHECK_CFG[type].label+" logged","ok",4000);
   }).catch(function(){saving=false;addToast("Could not save","danger",6000);render();});
 }
 function deleteLog(){
   if(!modal||saving)return;
   saving=true;render();
-  var site=modal.site,type=modal.type,hr=modal.hr,ds=modal.ds;
-  dbDelete(dbPath(ds,site,type,hr)).then(function(){
-    delete checks[ckKey(ds,site,type,hr)];saving=false;modal=null;render();
+  var site=modal.site,type=modal.type,schedMin=modal.schedMin,ds=modal.ds;
+  dbDelete(dbPath(ds,site,type,schedMin)).then(function(){
+    delete checks[ckKey(ds,site,type,schedMin)];saving=false;modal=null;render();
     addToast("Log deleted","warn",4000);
   }).catch(function(){saving=false;addToast("Could not delete","danger",6000);render();});
 }
 
 function addToast(msg,kind,ms){if(!ms)ms=8000;var id=Date.now()+Math.random();toasts=toasts.slice(-2).concat([{id:id,msg:msg,kind:kind}]);render();setTimeout(function(){toasts=toasts.filter(function(t){return t.id!==id;});render();},ms);}
 
+// ── alerts ────────────────────────────────────────────────────
 function checkAlerts(){
-  var h=now.getHours(),m=now.getMinutes(),ds=dstr(now);
+  var nm=nowMins(),ds=dstr(now);
   function push(title,body,kind){addToast(body,kind,10000);if(notifPerm==="granted"){try{new Notification(title,{body:body});}catch(e){}}}
-  if(m===50){var dh=h+1;for(var i=0;i<SITES.length;i++){var site=SITES[i],tk=Object.keys(SCH[site]);for(var j=0;j<tk.length;j++){var hrs=SCH[site][tk[j]];if(hrs.indexOf(dh)>=0){var nk=nfKeyFn(ds,site,tk[j],dh,"pre"),ck=ckKey(ds,site,tk[j],dh);if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check due soon",site+" - "+CHECK_CFG[tk[j]].label+" due at "+fmtH(dh),"warn");}}}}}
-  if(m===15){for(var i=0;i<SITES.length;i++){var site=SITES[i],tk=Object.keys(SCH[site]);for(var j=0;j<tk.length;j++){var hrs=SCH[site][tk[j]];if(hrs.indexOf(h)>=0){var nk=nfKeyFn(ds,site,tk[j],h,"late"),ck=ckKey(ds,site,tk[j],h);if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check missed!",site+" - "+CHECK_CFG[tk[j]].label+" at "+fmtH(h)+" was not completed","danger");}}}}}
+  for(var i=0;i<SITES.length;i++){
+    var site=SITES[i],tk=Object.keys(SCH[site]);
+    for(var j=0;j<tk.length;j++){
+      var type=tk[j],win=CHECK_CFG[type]||{earlyMins:15,lateMins:15},mins=SCH[site][type];
+      for(var k=0;k<mins.length;k++){
+        var schedMin=mins[k],diff=nm-schedMin;
+        var ck=ckKey(ds,site,type,schedMin);
+        // Alert earlyMins before (i.e. diff === -earlyMins exactly, check within 1 min window)
+        if(diff>=-win.earlyMins&&diff<-(win.earlyMins-1)){
+          var nk=nfKeyFn(ds,site,type,schedMin,"pre");
+          if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check due soon",site+" - "+CHECK_CFG[type].label+" due at "+fmtMin(schedMin),"warn");}
+        }
+        // Alert at lateMins after
+        if(diff>=win.lateMins&&diff<win.lateMins+1){
+          var nk=nfKeyFn(ds,site,type,schedMin,"late");
+          if(notifiedArr.indexOf(nk)<0&&!checks[ck]){notifiedArr.push(nk);saveNotified(notifiedArr);push("Check missed!",site+" - "+CHECK_CFG[type].label+" at "+fmtMin(schedMin)+" was not completed","danger");}
+        }
+      }
+    }
+  }
 }
 
 // ── start ─────────────────────────────────────────────────────
