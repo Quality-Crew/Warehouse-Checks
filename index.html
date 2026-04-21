@@ -482,7 +482,7 @@ function buildMemberCard(u,isMe,isAdmin){
     '</div>'+
     '<div style="flex:1">'+
       '<div style="font-weight:600;font-size:15px;color:#1e293b">'+u.displayName+(isMe?' <span style="font-size:11px;color:#185FA5;font-weight:500">(you)</span>':'')+'</div>'+
-      '<div style="font-size:12px;color:#64748b;margin-top:2px">'+(isAdmin?'&#128081; Admin':'Team member')+'</div>'+
+      '<div style="font-size:12px;color:#64748b;margin-top:2px">'+(isAdmin?'Admin':'Team member')+'</div>'+
     '</div>'+
   '</div>';
 }
@@ -547,7 +547,8 @@ function buildAdmin(){
     html+='<div style="background:#1e293b;border-radius:14px;padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'+
       '<div style="width:36px;height:36px;border-radius:50%;background:#334155;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;font-size:14px">'+avatarLetter(u.displayName)+'</div>'+
       '<div style="flex:1"><div style="font-weight:600;font-size:14px;color:#fff">'+u.displayName+(isMe?' <span style="font-size:11px;color:#94a3b8">(you)</span>':'')+'</div>'+
-      '<div style="font-size:12px;color:#94a3b8">&#128081; Admin</div></div>'+
+      '<div style="font-size:12px;color:#94a3b8">Admin</div></div>'+
+      (!isMe?'<button data-demote="'+u._key+'" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #475569;background:#334155;color:#94a3b8;font-weight:600;flex-shrink:0">Remove admin</button>':'')+
     '</div>';
   }
 
@@ -562,6 +563,8 @@ function buildAdminConfirm(){
     title="Make admin";msg="Are you sure you want to make <strong>"+adminAction.name+"</strong> an admin?";btnCol="#185FA5";btnTxt="Yes, make admin";
   } else if(adminAction.type==="remove"){
     title="Remove user";msg="Are you sure you want to remove <strong>"+adminAction.name+"</strong>? They will lose access.";btnCol="#991b1b";btnTxt="Yes, remove";
+  } else if(adminAction.type==="demote"){
+    title="Remove admin role";msg="Are you sure you want to remove admin access from <strong>"+adminAction.name+"</strong>? They will become a regular team member.";btnCol="#854d0e";btnTxt="Yes, remove admin";
   }
   return '<div id="overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:200">'+
     '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto">'+
@@ -648,7 +651,7 @@ function render(){
   var isAdmin=(myStatus==="admin");
   var tabs2=["overview"].concat(SITES).concat(["history","team"]);
   if(isAdmin) tabs2.push("admin");
-  var tlbls={overview:"Overview",history:"History",team:"Team",admin:"&#128081; Admin",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
+  var tlbls={overview:"Overview",history:"History",team:"Team",admin:"Admin",Fuji:"Fuji",Koi:"Koi",Bonsai:"Bonsai",Yuzu:"Yuzu"};
   var tabsHtml="";
   for(var i=0;i<tabs2.length;i++){
     var t=tabs2[i],act=(tab===t),c=SITE_CFG[t];
@@ -681,14 +684,14 @@ function render(){
   var userPill='<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:6px 10px">'+
     '<div style="width:22px;height:22px;border-radius:50%;background:'+(isAdmin?"#1e293b":"#dbeafe")+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+(isAdmin?"#fff":"#185FA5")+';flex-shrink:0">'+avatarLetter(myName)+'</div>'+
     '<div style="font-size:13px;font-weight:600;color:#1e293b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(myName||"")+'</div>'+
-    (isAdmin?'<span style="font-size:10px;color:#94a3b8">&#128081;</span>':'')+
+    (isAdmin?'<span style="font-size:10px;color:#94a3b8"></span>':'')+
   '</div>';
 
   // Add pending badge to admin tab button if needed
   if(pendingCount>0&&isAdmin){
     tabsHtml=tabsHtml.replace('data-tab="admin"','data-tab="admin" ');
     // Find admin button and add badge
-    tabsHtml=tabsHtml.replace(/>&#128081; Admin<\/button>/,'>&#128081; Admin <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;min-width:16px;display:inline-block;text-align:center">'+pendingCount+'</span></button>');
+    tabsHtml=tabsHtml.replace(/>Admin<\/button>/,'>Admin <span style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;min-width:16px;display:inline-block;text-align:center">'+pendingCount+'</span></button>');
   }
 
   app.innerHTML=
@@ -735,7 +738,9 @@ function render(){
   for(var i=0;i<promoteBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"promote",key:el.dataset.promote,name:allUsers[el.dataset.promote].displayName};render();});})(promoteBtns[i]);}
   var removeBtns=app.querySelectorAll("[data-remove]");
   for(var i=0;i<removeBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"remove",key:el.dataset.remove,name:allUsers[el.dataset.remove].displayName};render();});})(removeBtns[i]);}
-  var dc=document.getElementById("do-confirm");if(dc)dc.addEventListener("click",function(){if(adminAction)adminAction.type==="promote"?promoteUser(adminAction.key):removeUser(adminAction.key);});
+  var demoteBtns=app.querySelectorAll("[data-demote]");
+  for(var i=0;i<demoteBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"demote",key:el.dataset.demote,name:allUsers[el.dataset.demote].displayName};render();});})(demoteBtns[i]);}
+  var dc=document.getElementById("do-confirm");if(dc)dc.addEventListener("click",function(){if(adminAction){if(adminAction.type==="promote")promoteUser(adminAction.key);else if(adminAction.type==="remove")removeUser(adminAction.key);else if(adminAction.type==="demote")demoteUser(adminAction.key);}});
   var cc=document.getElementById("cancel-confirm");if(cc)cc.addEventListener("click",function(){adminAction=null;render();});
 }
 
@@ -754,6 +759,12 @@ function promoteUser(key){
   var u=allUsers[key];if(!u){saving=false;return;}
   u.isAdmin=true;u.status="approved";
   dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is now an admin","ok",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
+}
+function demoteUser(key){
+  saving=true;render();
+  var u=allUsers[key];if(!u){saving=false;return;}
+  u.isAdmin=false;u.status="approved";
+  dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is no longer an admin","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 function removeUser(key){
   saving=true;render();
