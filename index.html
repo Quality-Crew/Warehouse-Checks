@@ -767,6 +767,10 @@ function demoteUser(key){
   dbWrite("/users/"+key,u).then(function(){allUsers[key]=u;saving=false;adminAction=null;addToast(u.displayName+" is no longer an admin","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
 function removeUser(key){
+  var u=allUsers[key];
+  if(u&&u.displayName&&u.displayName.trim().toLowerCase()===FIRST_ADMIN.trim().toLowerCase()){
+    adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;
+  }
   saving=true;render();
   dbDelete("/users/"+key).then(function(){delete allUsers[key];saving=false;adminAction=null;addToast("User removed","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
 }
