@@ -146,6 +146,7 @@ var regInput    = "";
 var regStatus   = "";
 var adminAction = null;
 var modalComment= "";  // optional comment/reason text
+var doAutoScroll= false; // only true when user explicitly clicks a site tab
 
 // ── bootstrap ─────────────────────────────────────────────────
 function loadMyStatus(){
@@ -784,7 +785,7 @@ function render(){
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
-  for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;overviewSite=null;render();});})(tabBtns[i]);}
+  for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;overviewSite=null;doAutoScroll=(SITES.indexOf(tab)>=0);render();});})(tabBtns[i]);}
   var logBtns=app.querySelectorAll("[data-log]");
   for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};modalComment="";render();});})(logBtns[i]);}
   var editBtns=app.querySelectorAll("[data-edit]");
@@ -827,16 +828,13 @@ function render(){
   var newScrollX=app.querySelector(".scroll-x");
   if(newScrollX&&savedTabScroll>0)newScrollX.scrollLeft=savedTabScroll;
 
-  // Auto-scroll to first "due" or "upcoming" block when on a site tab
-  if(SITES.indexOf(tab)>=0){
+  // Auto-scroll only when user explicitly clicks a site tab
+  if(doAutoScroll&&SITES.indexOf(tab)>=0){
+    doAutoScroll=false; // reset immediately so subsequent renders don't scroll
     setTimeout(function(){
-      var contentArea=document.getElementById("content-area");
-      // Find all time block headings
       var blocks=app.querySelectorAll("[data-timeblock]");
       var target=null;
-      // First try "due"
       for(var i=0;i<blocks.length;i++){if(blocks[i].dataset.timeblock==="due"){target=blocks[i];break;}}
-      // Then try "upcoming"
       if(!target)for(var i=0;i<blocks.length;i++){if(blocks[i].dataset.timeblock==="upcoming"){target=blocks[i];break;}}
       if(target){
         var headerHeight=document.querySelector("[style*='position:sticky']");
