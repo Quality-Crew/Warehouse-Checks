@@ -136,6 +136,7 @@ var toasts      = [];
 var saving      = false;
 var notifPerm   = typeof Notification!=="undefined"?Notification.permission:"denied";
 var historyDay  = null;
+var overviewSite= null; // which site's detail is open in overview
 var notifiedArr = loadNotified();
 var myStatus    = null;
 var allUsers    = {};
@@ -344,7 +345,7 @@ function buildOverview(){
     var p=s.total>0?Math.round((s.done/s.total)*100):100;
     var barCol=s.missed>0?"#ef4444":s.overdue>0?"#f97316":c.color;
     var bdr=(s.missed>0||s.overdue>0)?"1.5px solid #fca5a5":"1px solid #e2e8f0";
-    html+='<div data-gotosite="'+site+'" style="background:#fff;border-radius:14px;border:'+bdr+';padding:12px;cursor:pointer;border-left:4px solid '+c.color+'">';
+    html+='<div data-ovsite="'+site+'" style="background:#fff;border-radius:14px;border:'+bdr+';padding:12px;cursor:pointer;border-left:4px solid '+c.color+'">';
     html+='<div style="font-weight:600;font-size:15px;color:'+c.color+';margin-bottom:6px">'+site+'</div>';
     html+='<div style="height:5px;background:#f1f5f9;border-radius:3px;margin-bottom:8px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+barCol+';border-radius:3px"></div></div>';
     html+='<div style="font-size:11px;color:#64748b;line-height:1.8"><span style="color:#16a34a;font-weight:600">'+s.done+'</span> done';
@@ -354,6 +355,92 @@ function buildOverview(){
     html+='</div></div>';
   }
   return html+'</div>';
+}
+
+
+// ── overview factory detail ───────────────────────────────────
+function buildOverviewSiteDetail(site){
+  var ds=dstr(now),s=getStats(site,ds),c=SITE_CFG[site];
+  var pct=s.total>0?Math.round((s.done/s.total)*100):100;
+  var barCol=s.missed>0?"#ef4444":s.overdue>0?"#f97316":c.color;
+
+  // Collect missed and late checks in time order
+  var missedChecks=[],lateChecks=[];
+  var typeKeys=Object.keys(SCH[site]);
+  var allMins={};
+  for(var i=0;i<typeKeys.length;i++){var mins=SCH[site][typeKeys[i]];for(var j=0;j<mins.length;j++)allMins[mins[j]]=true;}
+  var sortedMins=Object.keys(allMins).map(Number).sort(function(a,b){return a-b;});
+  for(var hi=0;hi<sortedMins.length;hi++){
+    var sm=sortedMins[hi];
+    for(var ti=0;ti<typeKeys.length;ti++){
+      var type=typeKeys[ti];
+      if(SCH[site][type].indexOf(sm)<0)continue;
+      var res=getStatus(site,type,sm,ds);
+      if(res.s==="missed") missedChecks.push({type:type,sm:sm,entry:res.entry});
+      else if(res.s==="overdue") lateChecks.push({type:type,sm:sm,entry:res.entry});
+    }
+  }
+
+  var html='';
+  // Back button
+  html+='<div id="ov-back-btn" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:8px 14px;border-radius:20px;border:1px solid #e2e8f0;background:#fff;font-size:13px;font-weight:600;color:#475569;cursor:pointer">&larr; Back to overview</div>';
+
+  // Header card
+  html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-bottom:16px;border-left:4px solid '+c.color+'">';
+  html+='<div style="font-weight:700;font-size:18px;color:'+c.color+';margin-bottom:12px">'+site+'</div>';
+  // Big % done
+  html+='<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">';
+  html+='<div style="font-size:36px;font-weight:700;color:'+(pct===100?"#16a34a":pct>=60?"#d97706":"#dc2626")+'">'+pct+'%</div>';
+  html+='<div style="flex:1">';
+  html+='<div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:'+pct+'%;background:'+barCol+';border-radius:5px"></div></div>';
+  html+='<div style="font-size:12px;color:#64748b">'+s.done+' of '+s.total+' checks completed today</div>';
+  html+='</div></div>';
+  // Stat pills
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  html+='<span style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#166634">'+s.done+' done</span>';
+  if(s.due>0)    html+='<span style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;background:#fef9c3;color:#854d0e">'+s.due+' due now</span>';
+  if(s.missed>0) html+='<span style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;background:#fee2e2;color:#991b1b">'+s.missed+' missed</span>';
+  if(s.overdue>0)html+='<span style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;background:#ffedd5;color:#c2410c">'+s.overdue+' late</span>';
+  html+='</div></div>';
+
+  // Missed section
+  html+='<div style="margin-bottom:16px">';
+  html+='<div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:8px;display:flex;align-items:center;gap:8px">'+
+    '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444"></span>Missed checks</div>';
+  if(missedChecks.length===0){
+    html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#166534">No missed checks</div>';
+  } else {
+    for(var i=0;i<missedChecks.length;i++){
+      var ck=missedChecks[i];
+      html+='<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:11px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">'+
+        '<div><div style="font-weight:600;font-size:14px;color:#1e293b">'+CHECK_CFG[ck.type].label+'</div>'+
+        '<div style="font-size:12px;color:#64748b;margin-top:2px">Scheduled at '+fmtMin(ck.sm)+'</div></div>'+
+        '<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:#fee2e2;color:#991b1b">Missed</span>'+
+      '</div>';
+    }
+  }
+  html+='</div>';
+
+  // Late section
+  html+='<div style="margin-bottom:16px">';
+  html+='<div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:8px;display:flex;align-items:center;gap:8px">'+
+    '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316"></span>Late checks</div>';
+  if(lateChecks.length===0){
+    html+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#166534">No late checks</div>';
+  } else {
+    for(var i=0;i<lateChecks.length;i++){
+      var ck=lateChecks[i];
+      var logTime=ck.entry?new Date(ck.entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+      html+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:11px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">'+
+        '<div><div style="font-weight:600;font-size:14px;color:#1e293b">'+CHECK_CFG[ck.type].label+'</div>'+
+        '<div style="font-size:12px;color:#64748b;margin-top:2px">Scheduled '+fmtMin(ck.sm)+(ck.entry?' &middot; logged at '+logTime+' by '+ck.entry.name:'')+'</div></div>'+
+        '<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:#ffedd5;color:#c2410c">Late</span>'+
+      '</div>';
+    }
+  }
+  html+='</div>';
+
+  return html;
 }
 
 function buildSite(site){
@@ -644,7 +731,7 @@ function render(){
   var notifBar=notifPerm!=="granted"?'<div id="notif-bar" style="background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:12px;color:#854d0e;cursor:pointer;margin-bottom:10px;font-weight:500">Tap here to enable notifications for check reminders</div>':"";
   var offBanner=dbStatus==="offline"?'<div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;font-size:12px;color:#991b1b;margin-bottom:10px;font-weight:500">&#9888; No database connection. Retrying...</div>':"";
   var content="";
-  if(tab==="overview")content=buildOverview();
+  if(tab==="overview")content=(overviewSite?buildOverviewSiteDetail(overviewSite):buildOverview());
   else if(SITES.indexOf(tab)>=0)content=buildSite(tab);
   else if(tab==="history")content=historyDay?buildHistoryDetail(historyDay):buildHistory();
   else if(tab==="team")content=buildTeam();
@@ -671,16 +758,18 @@ function render(){
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
-  for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;render();});})(tabBtns[i]);}
+  for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;overviewSite=null;render();});})(tabBtns[i]);}
   var logBtns=app.querySelectorAll("[data-log]");
   for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(logBtns[i]);}
   var editBtns=app.querySelectorAll("[data-edit]");
   for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
-  var siteBtns=app.querySelectorAll("[data-gotosite]");
-  for(var i=0;i<siteBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.gotosite;render();});})(siteBtns[i]);}
+  // Overview site boxes → open inline detail
+  var ovSiteBtns=app.querySelectorAll("[data-ovsite]");
+  for(var i=0;i<ovSiteBtns.length;i++){(function(el){el.addEventListener("click",function(){overviewSite=el.dataset.ovsite;render();window.scrollTo({top:0,behavior:'smooth'});});})(ovSiteBtns[i]);}
   var hdBtns=app.querySelectorAll("[data-histday]");
   for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;render();});})(hdBtns[i]);}
   var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
+  var ovbb=document.getElementById("ov-back-btn");if(ovbb)ovbb.addEventListener("click",function(){overviewSite=null;render();});
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
   var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";render();});
   var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
