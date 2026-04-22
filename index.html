@@ -367,6 +367,105 @@ function buildOverview(){
 }
 
 
+
+// ── current checks box ────────────────────────────────────────
+// Slot logic: for hour H, show from H-1:45 to H:45
+// e.g. 13:45 to 14:45 shows "2pm - 3pm" (checks between 14:00 and 15:00)
+function buildCurrentChecks(){
+  var nm=nowMins();
+  var ds=dstr(now);
+
+  // Find current slot: the nearest whole hour such that nm is in [H-15, H+45)
+  // i.e. H = ceil((nm+15) / 60) * 60
+  var slotStart=Math.ceil((nm+15)/60)*60;
+  var windowStart=slotStart-15;
+  var windowEnd=slotStart+45;
+
+  // Only show if we're inside the window
+  if(nm<windowStart||nm>=windowEnd)return"";
+
+  var slotEnd=slotStart+60;
+  var heading="Current checks ("+fmtMin(slotStart)+" &ndash; "+fmtMin(slotEnd)+")";
+
+  // Collect all checks across all sites in this slot
+  var total=0,done=0,pending=0;
+  // Build per-site lists: pending first, done below
+  var siteRows={};
+  for(var si=0;si<SITES.length;si++){
+    var site=SITES[si];
+    var c=SITE_CFG[site];
+    var typeKeys=Object.keys(SCH[site]);
+    var pendingItems=[],doneItems=[];
+    for(var ti=0;ti<typeKeys.length;ti++){
+      var type=typeKeys[ti];
+      var mins=SCH[site][type];
+      for(var mi=0;mi<mins.length;mi++){
+        var sm=mins[mi];
+        if(sm<slotStart||sm>=slotEnd)continue;
+        total++;
+        var res=getStatus(site,type,sm,ds);
+        var s=res.s,entry=res.entry;
+        var isDone=(s==="done"||s==="overdue");
+        if(isDone){done++;doneItems.push({type:type,sm:sm,s:s,entry:entry});}
+        else{pending++;pendingItems.push({type:type,sm:sm,s:s,entry:entry});}
+      }
+    }
+    if(pendingItems.length+doneItems.length>0){
+      siteRows[site]={c:c,pending:pendingItems,done:doneItems};
+    }
+  }
+
+  if(total===0)return"";
+
+  var html='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px;margin-top:14px">';
+  // Header
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html+='<div style="font-weight:700;font-size:15px;color:#1e293b">'+heading+'</div>';
+  html+='</div>';
+  // Summary pills
+  html+='<div style="display:flex;gap:8px;margin-bottom:14px">';
+  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#475569">'+total+' total</span>';
+  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#dcfce7;color:#166534">'+done+' done</span>';
+  html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#fef9c3;color:#854d0e">'+pending+' pending</span>';
+  html+='</div>';
+
+  // Per-site rows in order: Fuji, Koi, Bonsai, Yuzu
+  for(var si=0;si<SITES.length;si++){
+    var site=SITES[si];
+    if(!siteRows[site])continue;
+    var c=siteRows[site].c;
+    var pendingItems=siteRows[site].pending;
+    var doneItems=siteRows[site].done;
+    html+='<div style="margin-bottom:12px">';
+    html+='<div style="font-size:12px;font-weight:700;color:'+c.color+';margin-bottom:6px;display:flex;align-items:center;gap:6px">'+
+      '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c.color+'"></span>'+site+'</div>';
+    // Pending items first
+    for(var pi=0;pi<pendingItems.length;pi++){
+      var item=pendingItems[pi];
+      var m=STATUS_STYLE[item.s]||STATUS_STYLE.upcoming;
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:'+m.rowBg+';border:1px solid '+m.rowBdr+';margin-bottom:4px">';
+      html+='<div><div style="font-size:13px;font-weight:500;color:#1e293b">'+CHECK_CFG[item.type].label+'</div>';
+      html+='<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+fmtMin(item.sm)+'</div></div>';
+      html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';
+      html+='</div>';
+    }
+    // Done items below
+    for(var di=0;di<doneItems.length;di++){
+      var item=doneItems[di];
+      var m=STATUS_STYLE[item.s]||STATUS_STYLE.done;
+      var t=item.entry?new Date(item.entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;margin-bottom:4px;opacity:0.75">';
+      html+='<div><div style="font-size:13px;font-weight:400;color:#94a3b8">'+CHECK_CFG[item.type].label+'</div>';
+      html+='<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+(item.entry?"By "+item.entry.name+" &middot; "+t:fmtMin(item.sm))+'</div></div>';
+      html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
 // ── overview factory detail ───────────────────────────────────
 function buildOverviewSiteDetail(site){
   var ds=dstr(now),s=getStats(site,ds),c=SITE_CFG[site];
