@@ -48,7 +48,7 @@ var CHECK_CFG = {
   temp:    {label:"Temperature",                        earlyMins:15, lateMins:15},
   shutter: {label:"Shutter door",                       earlyMins:15, lateMins:15},
   thaw:    {label:"Thaw cabinet",                       earlyMins:15, lateMins:60},
-  sani:    {label:"Sani tunnel chemical check",         earlyMins:30, lateMins:60},
+  sani:    {label:"Sani tunnel chemical check",         earlyMins:15, lateMins:60},
   rice:    {label:"Rice traceability",                  earlyMins:15, lateMins:15}
 };
 
@@ -65,7 +65,7 @@ var SCH = {
     nozzle:  NOZZLE_MINS,
     temp:    [hm(4),hm(8),hm(12),hm(16),hm(20),hm(22)],
     shutter: SHUTTER_MINS,
-    sani:    [hm(14,30)]
+    sani:    [hm(4),hm(14,30)]
   },
   Koi: {
     mice:    [hm(6),hm(8),hm(10),hm(12),hm(14),hm(16),hm(18),hm(20),hm(22)],
@@ -78,7 +78,7 @@ var SCH = {
     nozzle:  NOZZLE_MINS,
     shutter: SHUTTER_MINS,
     thaw:    [hm(6),hm(14),hm(20)],
-    sani:    [hm(14,30)],
+    sani:    [hm(4),hm(14,30)],
     rice:    [hm(8)]
   },
   Yuzu: {
@@ -86,7 +86,7 @@ var SCH = {
     nozzle:  NOZZLE_MINS,
     shutter: SHUTTER_MINS,
     thaw:    [hm(6),hm(14),hm(20)],
-    sani:    [hm(14,30)]
+    sani:    [hm(4),hm(14,30)]
   }
 };
 
@@ -223,11 +223,18 @@ function loadData(){
 function startPolling(){loadData();setInterval(loadData,30000);}
 
 // ── status ────────────────────────────────────────────────────
+// 4 AM checks get a special window: open 15 mins early, missed only after 60 mins (5 AM)
+function getWin(type,schedMin){
+  var base=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
+  if(schedMin===hm(4)){return{earlyMins:15,lateMins:60};}
+  return base;
+}
+
 function getStatus(site,type,schedMin,ds){
   var key=ckKey(ds,site,type,schedMin);
   var entry=checks[key];
   var isToday=(ds===dstr(now));
-  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
+  var win=getWin(type,schedMin);
   if(entry){
     var logTime=new Date(entry.loggedAt);
     var logMin=logTime.getHours()*60+logTime.getMinutes();
@@ -247,7 +254,7 @@ function canLogCheck(site,type,schedMin,ds){
   var res=getStatus(site,type,schedMin,ds);
   if(!res||res.s==="done"||res.s==="overdue")return false;
   if(ds!==dstr(now))return false;
-  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
+  var win=getWin(type,schedMin);
   return (nowMins()-schedMin)>=-win.earlyMins;
 }
 
@@ -281,7 +288,7 @@ function buildTypeRow(site,type,schedMin,ds){
   var isToday=(ds===dstr(now)),canLog=canLogCheck(site,type,schedMin,ds);
   var isLogged=(s==="done"||s==="overdue");
   var m=STATUS_STYLE[s]||STATUS_STYLE.upcoming;
-  var win=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
+  var win=getWin(type,schedMin);
   var sub="";
   if(entry){
     var t=new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
