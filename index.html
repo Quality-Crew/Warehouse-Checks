@@ -497,10 +497,19 @@ function buildCurrentChecks(){
     for(var pi=0;pi<pendingItems.length;pi++){
       var item=pendingItems[pi];
       var m=STATUS_STYLE[item.s]||STATUS_STYLE.upcoming;
+      var aKey=ckKey(ds,site,item.type,item.sm);
+      var aEntry=assignments[aKey];
       html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:'+m.rowBg+';border:1px solid '+m.rowBdr+';margin-bottom:4px">';
-      html+='<div><div style="font-size:13px;font-weight:500;color:#1e293b">'+CHECK_CFG[item.type].label+'</div>';
-      html+='<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+fmtMin(item.sm)+'</div></div>';
-      html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+m.bg+';color:'+m.c+'">'+m.label+'</span>';
+      html+='<div style="flex:1;min-width:0">';
+      html+='<div style="font-size:13px;font-weight:500;color:#1e293b">'+CHECK_CFG[item.type].label+'</div>';
+      html+='<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+fmtMin(item.sm)+'</div>';
+      if(aEntry){
+        html+='<div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:3px">&#10003; '+aEntry.assignedTo+'</div>';
+      } else {
+        html+='<div style="font-size:11px;color:#dc2626;font-weight:500;margin-top:3px">Not assigned to anyone</div>';
+      }
+      html+='</div>';
+      html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+m.bg+';color:'+m.c+';flex-shrink:0;margin-left:8px">'+m.label+'</span>';
       html+='</div>';
     }
     // Done items below
