@@ -114,6 +114,7 @@ function fmtMin(m){
 
 function ckKey(ds,site,type,schedMin){return ds+"||"+site+"||"+type+"||"+pad4(schedMin);}
 function dbPath(ds,site,type,schedMin){return"/checks/"+ds+"/"+site+"/"+type+"/m"+pad4(schedMin);}
+function assignPath(ds,site,type,schedMin){return"/assignments/"+ds+"/"+site+"/"+type+"/m"+pad4(schedMin);}
 function nfKeyFn(ds,site,type,schedMin,k){return"nf|"+ds+"|"+site+"|"+type+"|"+pad4(schedMin)+"|"+k;}
 function normName(n){return n.trim().toLowerCase().replace(/\s+/g,"_");}
 function genDeviceId(){return"dev_"+Math.random().toString(36).substr(2,9)+Date.now().toString(36);}
@@ -130,6 +131,7 @@ if(!myDeviceId){myDeviceId=genDeviceId();localStorage.setItem("wh_device_id",myD
 var now         = new Date();
 var tab         = "overview";
 var checks      = {};
+var assignments = {}; // ckKey -> {assignedTo, assignedBy, assignedAt}
 var dbStatus    = "connecting";
 var modal       = null;
 var toasts      = [];
@@ -146,7 +148,8 @@ var regInput    = "";
 var regStatus   = "";
 var adminAction = null;
 var modalComment= "";  // optional comment/reason text
-var doAutoScroll= false; // only true when user explicitly clicks a site tab
+var doAutoScroll= false;
+var assignModal = null; // {site,type,schedMin,ds} for admin picker // only true when user explicitly clicks a site tab
 
 // ── bootstrap ─────────────────────────────────────────────────
 function loadMyStatus(){
@@ -196,6 +199,26 @@ function tryRegister(){
 // ── data load ─────────────────────────────────────────────────
 function loadData(){
   var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-8));
+  // Load assignments too
+  dbRead("/assignments").then(function(aData){
+    if(!aData)aData={};
+    assignments={};
+    var adsList=Object.keys(aData);
+    for(var i=0;i<adsList.length;i++){
+      var ds=adsList[i];if(ds<cutoff)continue;
+      var sites=aData[ds]||{},sl=Object.keys(sites);
+      for(var j=0;j<sl.length;j++){
+        var site=sl[j],types=sites[site]||{},tl=Object.keys(types);
+        for(var k=0;k<tl.length;k++){
+          var type=tl[k],times=types[type]||{},tKeys=Object.keys(times);
+          for(var l=0;l<tKeys.length;l++){
+            var tKey=tKeys[l],mins=parseInt(tKey.substr(1));
+            assignments[ckKey(ds,site,type,mins)]=times[tKey];
+          }
+        }
+      }
+    }
+  }).catch(function(){});
   dbRead("/checks").then(function(data){
     if(!data)data={};
     checks={};
@@ -224,6 +247,13 @@ function loadData(){
 function startPolling(){loadData();setInterval(loadData,30000);}
 
 // ── status ────────────────────────────────────────────────────
+// Assign window: -30 mins to +30 mins of check time
+function canAssign(schedMin,ds){
+  if(ds!==dstr(now))return false;
+  var diff=nowMins()-schedMin;
+  return diff>=-30&&diff<=30;
+}
+
 // 4 AM checks get a special window: open 15 mins early, missed only after 60 mins (5 AM)
 function getWin(type,schedMin){
   var base=CHECK_CFG[type]||{earlyMins:15,lateMins:15};
@@ -301,6 +331,28 @@ function buildTypeRow(site,type,schedMin,ds){
     var minsUntil=(-win.earlyMins)-(nowMins()-schedMin);
     sub='<div style="font-size:12px;color:#94a3b8;margin-top:2px">Opens in ~'+minsUntil+' min</div>';
   }
+  // Assignment
+  var assignKey=ckKey(ds,site,type,schedMin);
+  var assignEntry=assignments[assignKey];
+  var showAssign=isToday&&!isLogged&&canAssign(schedMin,ds);
+  var assignUI="";
+  if(showAssign){
+    if(assignEntry){
+      // Already assigned
+      var isMyAssign=(myName&&assignEntry.assignedTo.trim().toLowerCase()===myName.trim().toLowerCase());
+      assignUI='<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'+
+        '<span style="font-size:11px;color:#64748b">Assigned to <strong>'+assignEntry.assignedTo+'</strong></span>'+
+        (isMyAssign||myStatus==="admin"?'<button data-unassign="'+site+'||'+type+'||'+schedMin+'||'+ds+'" style="font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8">&#10005;</button>':'')+
+      '</div>';
+    } else {
+      if(myStatus==="admin"){
+        assignUI='<div style="margin-top:4px"><button data-assignpick="'+site+'||'+type+'||'+schedMin+'||'+ds+'" style="font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #185FA5;background:#eff6ff;color:#185FA5;font-weight:600">Assign to &darr;</button></div>';
+      } else {
+        assignUI='<div style="margin-top:4px"><button data-assignself="'+site+'||'+type+'||'+schedMin+'||'+ds+'" style="font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #185FA5;background:#eff6ff;color:#185FA5;font-weight:600">Assign to yourself</button></div>';
+      }
+    }
+  }
+
   var rightSide="";
   if(isLogged&&isToday){
     rightSide='<div style="display:flex;align-items:center;gap:6px">'+
@@ -309,7 +361,7 @@ function buildTypeRow(site,type,schedMin,ds){
   } else {rightSide=badge(s);}
   var logAttr=canLog?'data-log="'+site+'||'+type+'||'+schedMin+'||'+ds+'"':'';
   return '<div '+logAttr+' style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;border:1px solid '+m.rowBdr+';background:'+m.rowBg+';cursor:'+(canLog?"pointer":"default")+';margin-bottom:6px">'+
-    '<div style="flex:1"><div style="font-weight:'+(s==="done"?"400":"500")+';font-size:14px;color:'+(s==="done"?"#94a3b8":"#1e293b")+'">'+CHECK_CFG[type].label+'</div>'+sub+'</div>'+rightSide+'</div>';
+    '<div style="flex:1"><div style="font-weight:'+(s==="done"?"400":"500")+';font-size:14px;color:'+(s==="done"?"#94a3b8":"#1e293b")+'">'+CHECK_CFG[type].label+'</div>'+assignUI+sub+'</div>'+rightSide+'</div>';
 }
 
 // ── time blocks ───────────────────────────────────────────────
@@ -750,6 +802,37 @@ function buildAdminConfirm(){
     '</div></div></div>';
 }
 
+function buildAssignModal(){
+  if(!assignModal)return"";
+  var site=assignModal.site,type=assignModal.type,schedMin=assignModal.schedMin,ds=assignModal.ds,c=SITE_CFG[site];
+  // Get approved team members and admins
+  var members=[];
+  var keys=Object.keys(allUsers).sort(function(a,b){return(allUsers[a].order||0)-(allUsers[b].order||0);});
+  for(var i=0;i<keys.length;i++){
+    var u=allUsers[keys[i]];
+    if(u.status==="approved"||u.isAdmin)members.push(u);
+  }
+  var html='<div id="assign-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;z-index:300">'+
+    '<div style="background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 36px;width:100%;max-width:430px;margin:0 auto;max-height:70vh;overflow-y:auto">'+
+    '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px"></div>'+
+    '<div style="font-weight:700;font-size:18px;margin-bottom:5px">Assign to</div>'+
+    '<div style="font-size:13px;color:#64748b;background:#f8fafc;border-radius:10px;padding:9px 13px;margin-bottom:16px">'+
+      '<span style="color:'+c.color+';font-weight:600">'+site+'</span> &mdash; '+CHECK_CFG[type].label+' &mdash; '+fmtMin(schedMin)+
+    '</div>';
+  for(var i=0;i<members.length;i++){
+    var u=members[i];
+    var isMe=(myName&&myName.trim().toLowerCase()===u.displayName.trim().toLowerCase());
+    html+='<button data-assignto="'+u.displayName+'" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;margin-bottom:8px;text-align:left;cursor:pointer">'+
+      '<div style="width:34px;height:34px;border-radius:50%;background:'+(u.isAdmin?"#1e293b":"#f1f5f9")+';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:'+(u.isAdmin?"#fff":"#475569")+';flex-shrink:0">'+avatarLetter(u.displayName)+'</div>'+
+      '<div style="flex:1;font-weight:600;font-size:14px;color:#1e293b">'+u.displayName+(isMe?" (you)":"")+'</div>'+
+      (u.isAdmin?'<span style="font-size:10px;color:#94a3b8">Admin</span>':'')+
+    '</button>';
+  }
+  html+='<button id="cancel-assign" style="width:100%;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;margin-top:4px">Cancel</button>';
+  html+='</div></div>';
+  return html;
+}
+
 function buildModal(){
   if(!modal)return"";
   var site=modal.site,type=modal.type,schedMin=modal.schedMin,ds=modal.ds,c=SITE_CFG[site];
@@ -882,7 +965,7 @@ function render(){
       '<div class="scroll-x">'+tabsHtml+'</div>'+
     '</div>'+
     '<div id="content-area" style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
-    buildToasts()+buildModal()+buildAdminConfirm();
+    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal();
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
@@ -924,6 +1007,20 @@ function render(){
   for(var i=0;i<demoteBtns.length;i++){(function(el){el.addEventListener("click",function(){adminAction={type:"demote",key:el.dataset.demote,name:allUsers[el.dataset.demote].displayName};render();});})(demoteBtns[i]);}
   var dc=document.getElementById("do-confirm");if(dc)dc.addEventListener("click",function(){if(adminAction){if(adminAction.type==="promote")promoteUser(adminAction.key);else if(adminAction.type==="remove")removeUser(adminAction.key);else if(adminAction.type==="demote")demoteUser(adminAction.key);}});
   var cc=document.getElementById("cancel-confirm");if(cc)cc.addEventListener("click",function(){adminAction=null;render();});
+  // Assign self buttons
+  var asBtns=app.querySelectorAll("[data-assignself]");
+  for(var i=0;i<asBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.assignself.split("||");doAssign(p[0],p[1],parseInt(p[2]),p[3],myName);});})(asBtns[i]);}
+  // Assign picker (admin)
+  var apBtns=app.querySelectorAll("[data-assignpick]");
+  for(var i=0;i<apBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.assignpick.split("||");assignModal={site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(apBtns[i]);}
+  // Unassign buttons
+  var uaBtns=app.querySelectorAll("[data-unassign]");
+  for(var i=0;i<uaBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.unassign.split("||");doUnassign(p[0],p[1],parseInt(p[2]),p[3]);});})(uaBtns[i]);}
+  // Assign to specific person (admin picker)
+  var atBtns=app.querySelectorAll("[data-assignto]");
+  for(var i=0;i<atBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();if(assignModal){doAssign(assignModal.site,assignModal.type,assignModal.schedMin,assignModal.ds,el.dataset.assignto);}});})(atBtns[i]);}
+  var caBtn=document.getElementById("cancel-assign");if(caBtn)caBtn.addEventListener("click",function(){assignModal=null;render();});
+  var asOv=document.getElementById("assign-overlay");if(asOv)asOv.addEventListener("click",function(e){if(e.target===asOv){assignModal=null;render();}});
 
   // Restore tab bar scroll position
   var newScrollX=app.querySelector(".scroll-x");
@@ -967,6 +1064,22 @@ function removeUser(key){
   if(u&&u.isSuperAdmin){adminAction=null;addToast("The super admin cannot be removed","danger",4000);render();return;}
   saving=true;render();
   dbDelete("/users/"+key).then(function(){delete allUsers[key];saving=false;adminAction=null;addToast("User removed","warn",3000);render();}).catch(function(){saving=false;addToast("Failed","danger",4000);render();});
+}
+
+// ── assign / unassign ────────────────────────────────────────
+function doAssign(site,type,schedMin,ds,targetName){
+  var entry={assignedTo:targetName,assignedBy:myName,assignedAt:new Date().toISOString()};
+  dbWrite(assignPath(ds,site,type,schedMin),entry).then(function(){
+    assignments[ckKey(ds,site,type,schedMin)]=entry;
+    assignModal=null;render();
+    addToast(CHECK_CFG[type].label+" assigned to "+targetName,"ok",3000);
+  }).catch(function(){addToast("Could not assign","danger",4000);});
+}
+function doUnassign(site,type,schedMin,ds){
+  dbDelete(assignPath(ds,site,type,schedMin)).then(function(){
+    delete assignments[ckKey(ds,site,type,schedMin)];
+    render();addToast("Assignment removed","warn",3000);
+  }).catch(function(){addToast("Could not remove","danger",4000);});
 }
 
 // ── log / delete ──────────────────────────────────────────────
