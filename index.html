@@ -247,11 +247,10 @@ function loadData(){
 function startPolling(){loadData();setInterval(loadData,30000);}
 
 // ── status ────────────────────────────────────────────────────
-// Assign window: -30 mins to +30 mins of check time
+// Assign window: open all day from 4am for any unlogged check
 function canAssign(schedMin,ds){
   if(ds!==dstr(now))return false;
-  var diff=nowMins()-schedMin;
-  return diff>=-30&&diff<=30;
+  return nowMins()>=hm(4);
 }
 
 // 4 AM checks get a special window: open 15 mins early, missed only after 60 mins (5 AM)
