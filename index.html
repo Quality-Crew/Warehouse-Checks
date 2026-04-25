@@ -503,9 +503,19 @@ function buildCurrentChecks(){
       html+='<div style="font-size:13px;font-weight:500;color:#1e293b">'+CHECK_CFG[item.type].label+'</div>';
       html+='<div style="font-size:11px;color:#94a3b8;margin-top:1px">'+fmtMin(item.sm)+'</div>';
       if(aEntry){
-        html+='<div style="font-size:11px;color:#64748b;margin-top:3px">Assigned to <span style="font-weight:600;color:#334155">'+aEntry.assignedTo+'</span></div>';
+        html+='<div style="font-size:11px;color:#64748b;margin-top:3px">Assigned to <span style="font-weight:600;color:#334155">'+aEntry.assignedTo+'</span>';
+        var isMyAssign=(myName&&aEntry.assignedTo.trim().toLowerCase()===myName.trim().toLowerCase());
+        if(isMyAssign||myStatus==="admin"){
+          html+=' <button data-unassign="'+site+'||'+item.type+'||'+item.sm+'||'+ds+'" style="font-size:10px;padding:1px 5px;border-radius:5px;border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer">&#10005;</button>';
+        }
+        html+='</div>';
       } else {
         html+='<div style="font-size:11px;color:#dc2626;font-weight:500;margin-top:3px">Not assigned to anyone</div>';
+        if(myStatus==="admin"){
+          html+='<div style="margin-top:4px"><button data-assignpick="'+site+'||'+item.type+'||'+item.sm+'||'+ds+'" style="font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #185FA5;background:#eff6ff;color:#185FA5;font-weight:600;cursor:pointer">Assign to &darr;</button></div>';
+        } else {
+          html+='<div style="margin-top:4px"><button data-assignself="'+site+'||'+item.type+'||'+item.sm+'||'+ds+'" style="font-size:11px;padding:3px 10px;border-radius:8px;border:1px solid #185FA5;background:#eff6ff;color:#185FA5;font-weight:600;cursor:pointer">Assign to yourself</button></div>';
+        }
       }
       html+='</div>';
       html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+m.bg+';color:'+m.c+';flex-shrink:0;margin-left:8px">'+m.label+'</span>';
