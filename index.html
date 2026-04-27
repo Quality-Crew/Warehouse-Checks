@@ -141,6 +141,7 @@ var toasts      = [];
 var saving      = false;
 var notifPerm   = typeof Notification!=="undefined"?Notification.permission:"denied";
 var historyDay  = null;
+var histSite    = null; // which site to scroll to in history detail
 var overviewSite= null; // which site's detail is open in overview
 var notifiedArr = loadNotified();
 var myStatus    = null;
@@ -204,14 +205,15 @@ function tryRegister(){
 
 // ── data load ─────────────────────────────────────────────────
 function loadData(){
-  var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-8));
+  var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-15));
   // Load assignments too
   dbRead("/assignments").then(function(aData){
     if(!aData)aData={};
     assignments={};
     var adsList=Object.keys(aData);
+    var aCutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-15));
     for(var i=0;i<adsList.length;i++){
-      var ds=adsList[i];if(ds<cutoff)continue;
+      var ds=adsList[i];if(ds<aCutoff)continue;
       var sites=aData[ds]||{},sl=Object.keys(sites);
       for(var j=0;j<sl.length;j++){
         var site=sl[j],types=sites[site]||{},tl=Object.keys(types);
@@ -645,7 +647,7 @@ function buildSite(site){
 
 function buildHistory(){
   var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">Past 7 days</div>';
-  for(var i=1;i<=7;i++){
+  for(var i=1;i<=14;i++){
     var d=new Date(now);d.setDate(d.getDate()-i);
     var ds=dstr(d),s=getStats(null,ds);
     var pct=s.total>0?Math.round((s.done/s.total)*100):0;
@@ -662,7 +664,7 @@ function buildHistory(){
     for(var si=0;si<SITES.length;si++){
       var site=SITES[si],sc=getStats(site,ds),c=SITE_CFG[site];
       var sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
-      html+='<div style="background:'+c.bg+';border-radius:8px;padding:8px"><div style="font-weight:600;font-size:12px;color:'+c.color+';margin-bottom:3px">'+site+'</div>';
+      html+='<div data-histsite="'+site+'" data-histday2="'+ds+'" style="background:'+c.bg+';border-radius:8px;padding:8px;cursor:pointer"><div style="font-weight:600;font-size:12px;color:'+c.color+';margin-bottom:3px">'+site+' &rarr;</div>';
       html+='<div style="font-size:11px;color:'+c.color+'">'+sc.done+'/'+sc.total+' &middot; '+sp+'%';
       if(sc.missed>0) html+=' &middot; <span style="color:#991b1b">'+sc.missed+'M</span>';
       if(sc.overdue>0)html+=' &middot; <span style="color:#c2410c">'+sc.overdue+'L</span>';
@@ -673,7 +675,7 @@ function buildHistory(){
   return html;
 }
 
-function buildHistoryDetail(ds){
+function buildHistoryDetail(ds,scrollToSite){
   var d=new Date(ds+"T12:00:00"),s=getStats(null,ds),pct=s.total>0?Math.round((s.done/s.total)*100):0;
   var html='<div id="back-btn" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:8px 14px;border-radius:20px;border:1px solid #e2e8f0;background:#fff;font-size:13px;font-weight:600;color:#475569;cursor:pointer">&larr; Back</div>';
   html+='<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:14px;margin-bottom:16px">';
@@ -685,7 +687,7 @@ function buildHistoryDetail(ds){
   html+='<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#475569">'+pct+'% complete</span></div></div>';
   for(var i=0;i<SITES.length;i++){
     var site=SITES[i],c=SITE_CFG[site],sc=getStats(site,ds),sp=sc.total>0?Math.round((sc.done/sc.total)*100):0;
-    html+='<div style="margin-bottom:24px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+    html+='<div data-sitesection="'+site+'" style="margin-bottom:24px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
     html+='<div style="font-size:16px;font-weight:700;color:'+c.color+'">'+site+'</div>';
     html+='<div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:'+c.bg+';color:'+c.color+'">'+sp+'%</span>';
     if(sc.missed>0) html+='<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b">'+sc.missed+'M</span>';
@@ -1025,7 +1027,7 @@ function render(){
   var content="";
   if(tab==="overview")content=(overviewSite?buildOverviewSiteDetail(overviewSite):buildOverview());
   else if(SITES.indexOf(tab)>=0)content=buildSite(tab);
-  else if(tab==="history")content=historyDay?buildHistoryDetail(historyDay):buildHistory();
+  else if(tab==="history")content=historyDay?buildHistoryDetail(historyDay,histSite):buildHistory();
   else if(tab==="team")content=buildTeam();
   else if(tab==="admin")content=buildAdmin();
   var userPill='<div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:6px 10px">'+
@@ -1059,9 +1061,24 @@ function render(){
   var ovSiteBtns=app.querySelectorAll("[data-ovsite]");
   for(var i=0;i<ovSiteBtns.length;i++){(function(el){el.addEventListener("click",function(){overviewSite=el.dataset.ovsite;render();window.scrollTo({top:0,behavior:'smooth'});});})(ovSiteBtns[i]);}
   var hdBtns=app.querySelectorAll("[data-histday]");
-  for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;render();});})(hdBtns[i]);}
-  var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
+  for(var i=0;i<hdBtns.length;i++){(function(el){el.addEventListener("click",function(){historyDay=el.dataset.histday;histSite=null;render();});})(hdBtns[i]);}
+  // Site cards in history
+  var hsBtns=app.querySelectorAll("[data-histsite]");
+  for(var i=0;i<hsBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();historyDay=el.dataset.histday2;histSite=el.dataset.histsite;render();window.scrollTo({top:0,behavior:'smooth'});});})(hsBtns[i]);}
+  var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;histSite=null;render();});
   var ovbb=document.getElementById("ov-back-btn");if(ovbb)ovbb.addEventListener("click",function(){overviewSite=null;render();});
+  // Auto-scroll to site in history detail
+  if(histSite&&historyDay){
+    setTimeout(function(){
+      var target=app.querySelector('[data-sitesection="'+histSite+'"]');
+      if(target){
+        var hdr=document.querySelector("[style*='position:sticky']");
+        var offset=hdr?hdr.offsetHeight+8:130;
+        var top=target.getBoundingClientRect().top+window.scrollY-offset;
+        window.scrollTo({top:top,behavior:"smooth"});
+      }
+    },80);
+  }
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
   // Photo input
   var photoInput=document.getElementById("photo-input");
