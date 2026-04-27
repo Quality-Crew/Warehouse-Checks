@@ -27,6 +27,19 @@ function dbRead(path){return fetch(DB_URL+path+".json").then(function(r){return 
 function dbWrite(path,data){return fetch(DB_URL+path+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(function(r){return r.json();});}
 function dbDelete(path){return fetch(DB_URL+path+".json",{method:"DELETE"}).then(function(r){return r.json();});}
 
+// ── Cloudinary config ────────────────────────────────────────
+var CLOUDINARY_CLOUD = "dfre0zfn8";
+var CLOUDINARY_PRESET = "wh_checks"; // unsigned upload preset (create this in Cloudinary)
+var STORAGE_URL = "https://api.cloudinary.com/v1_1/"+CLOUDINARY_CLOUD+"/image/upload";
+
+// Photo rules per check type
+var PHOTO_RULES = {
+  mice:    {min:3, max:5, required:true},
+  temp:    {min:1, max:2, required:true},
+  nozzle:  {min:0, max:2, required:false},
+  shutter: {min:0, max:2, required:false}
+};
+
 // ── First admin ───────────────────────────────────────────────
 var FIRST_ADMIN = "Nitin J G";
 
@@ -138,6 +151,8 @@ var regInput    = "";
 var regStatus   = "";
 var adminAction = null;
 var modalComment= "";  // optional comment/reason text
+var modalPhotos  = [];  // [{dataUrl, file}] — staged photos before upload
+var uploadingPhotos = false;
 var doAutoScroll= false;
 var assignModal = null; // {site,type,schedMin,ds} for admin picker // only true when user explicitly clicks a site tab
 
@@ -312,7 +327,15 @@ function buildTypeRow(site,type,schedMin,ds){
   var sub="";
   if(entry){
     var t=new Date(entry.loggedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">By '+entry.name+' &middot; '+t+(s==="overdue"?' <span style="color:#c2410c">(late)</span>':'')+'</div>'+(entry.comment?'<div style="font-size:11px;color:#94a3b8;margin-top:2px;font-style:italic">&ldquo;'+entry.comment+'&rdquo;</div>':'')+'';
+    var photoThumb="";
+    if(entry.photos&&entry.photos.length){
+      photoThumb='<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">';
+      for(var _pi=0;_pi<entry.photos.length;_pi++){
+        photoThumb+='<a href="'+entry.photos[_pi]+'" target="_blank"><img src="'+entry.photos[_pi]+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0"/></a>';
+      }
+      photoThumb+='</div>';
+    }
+    sub='<div style="font-size:12px;color:#64748b;margin-top:2px">By '+entry.name+' &middot; '+t+(s==="overdue"?' <span style="color:#c2410c">(late)</span>':'')+'</div>'+(entry.comment?'<div style="font-size:11px;color:#94a3b8;margin-top:2px;font-style:italic">&ldquo;'+entry.comment+'&rdquo;</div>':'')+photoThumb;
   } else if(s==="missed"){sub='<div style="font-size:12px;color:#991b1b;margin-top:2px">Not completed</div>';}
   else if(s==="due"){sub='<div style="font-size:12px;color:#ca8a04;margin-top:2px">Tap to log now</div>';}
   else if(s==="upcoming"&&canLog){sub='<div style="font-size:12px;color:#64748b;margin-top:2px">Ready &mdash; tap to log early</div>';}
@@ -893,9 +916,49 @@ function buildModal(){
         'style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;background:#f8fafc;resize:none;height:80px;outline:none;font-family:inherit;margin-bottom:6px">'+modalComment.replace(/</g,"&lt;")+'</textarea>';
     }
     wrap+='<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><span id="char-count" style="font-size:11px;color:#94a3b8">'+modalComment.length+'/200</span></div>';
+
+    // ── Photo upload section ──────────────────────────────────
+    var photoRule=PHOTO_RULES[type]||{min:0,max:2,required:false};
+    var photoCount=modalPhotos.length;
+    var photoLabel=photoRule.required
+      ?'Photos <span style="color:#991b1b;font-weight:600">*required</span> (min '+photoRule.min+', max '+photoRule.max+')'
+      :'Photos <span style="font-weight:400;color:#94a3b8">(optional, max '+photoRule.max+')</span>';
+    wrap+='<div style="margin-bottom:14px">';
+    wrap+='<label style="display:block;font-weight:600;font-size:13px;margin-bottom:8px;color:#475569">'+photoLabel+'</label>';
+    // Thumbnails
+    if(photoCount>0){
+      wrap+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+      for(var pi=0;pi<modalPhotos.length;pi++){
+        wrap+='<div style="position:relative;width:72px;height:72px">';
+        wrap+='<img src="'+modalPhotos[pi].dataUrl+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0"/>';
+        wrap+='<button data-removephoto="'+pi+'" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1">&#10005;</button>';
+        wrap+='</div>';
+      }
+      wrap+='</div>';
+    }
+    // Add photo button (if under max)
+    if(photoCount<photoRule.max){
+      wrap+='<label id="add-photo-label" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">';
+      wrap+='&#128247; Add photo';
+      wrap+='<input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none"/></label>';
+    }
+    // Progress indicator during upload
+    if(uploadingPhotos){
+      wrap+='<div style="font-size:12px;color:#185FA5;margin-top:6px">Uploading photos...</div>';
+    }
+    // Requirement message
+    if(photoRule.required&&photoCount<photoRule.min){
+      var needed=photoRule.min-photoCount;
+      wrap+='<div style="font-size:12px;color:#991b1b;margin-top:6px">Please add '+needed+' more photo'+(needed>1?'s':'')+'</div>';
+    }
+    wrap+='</div>';
+
+    // Confirm button — disabled if photos not met
+    var photosMet=!photoRule.required||(photoCount>=photoRule.min);
+    var confirmBg=(!photosMet||saving||uploadingPhotos)?"#94a3b8":"#185FA5";
     wrap+='<div style="display:flex;gap:10px">'+
       '<button id="cancel-btn" style="flex:1;padding:13px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:14px;color:#64748b">Cancel</button>'+
-      '<button id="confirm-btn" style="flex:2;padding:13px;border-radius:10px;border:none;background:'+(saving?"#94a3b8":"#185FA5")+';color:#fff;font-size:15px;font-weight:600">'+(saving?"Saving...":"Confirm")+'</button>'+
+      '<button id="confirm-btn" '+((!photosMet||uploadingPhotos)?"disabled":"")+' style="flex:2;padding:13px;border-radius:10px;border:none;background:'+confirmBg+';color:#fff;font-size:15px;font-weight:600;opacity:'+((!photosMet||uploadingPhotos)?0.6:1)+'">'+(saving?"Saving...":(uploadingPhotos?"Uploading...":"Confirm"))+'</button>'+
     '</div>';
   }
   return wrap+'</div></div>';
@@ -978,7 +1041,7 @@ function render(){
   var tabBtns=app.querySelectorAll("[data-tab]");
   for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;overviewSite=null;doAutoScroll=(SITES.indexOf(tab)>=0);render();});})(tabBtns[i]);}
   var logBtns=app.querySelectorAll("[data-log]");
-  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};modalComment="";render();});})(logBtns[i]);}
+  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};modalComment="";modalPhotos=[];render();});})(logBtns[i]);}
   var editBtns=app.querySelectorAll("[data-edit]");
   for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
   // Overview site boxes → open inline detail
@@ -989,6 +1052,26 @@ function render(){
   var bb=document.getElementById("back-btn");if(bb)bb.addEventListener("click",function(){historyDay=null;render();});
   var ovbb=document.getElementById("ov-back-btn");if(ovbb)ovbb.addEventListener("click",function(){overviewSite=null;render();});
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
+  // Photo input
+  var photoInput=document.getElementById("photo-input");
+  if(photoInput){
+    photoInput.addEventListener("change",function(e){
+      var files=e.target.files;
+      if(!files||!files.length)return;
+      var file=files[0];
+      var photoRule=PHOTO_RULES[modal?modal.type:""]||{max:2};
+      if(modalPhotos.length>=photoRule.max){addToast("Maximum "+photoRule.max+" photos allowed","warn",3000);return;}
+      compressAndStage(file,function(staged){
+        modalPhotos.push(staged);
+        render();
+        setTimeout(function(){var lbl=document.getElementById("add-photo-label");if(lbl)lbl.scrollIntoView({behavior:"smooth",block:"nearest"});},50);
+      });
+      e.target.value="";
+    });
+  }
+  // Remove photo buttons
+  var rpBtns=app.querySelectorAll("[data-removephoto]");
+  for(var i=0;i<rpBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var idx=parseInt(el.dataset.removephoto);modalPhotos.splice(idx,1);render();});})(rpBtns[i]);}
   var mc=document.getElementById("modal-comment");
   if(mc){
     mc.addEventListener("input",function(e){
@@ -997,9 +1080,9 @@ function render(){
       if(cc)cc.textContent=modalComment.length+"/200";
     });
   }
-  var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";modalComment="";render();});
+  var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";modalComment="";modalPhotos=[];render();});
   var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
-  var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;modalComment="";render();});
+  var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;modalComment="";modalPhotos=[];render();});
   var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;adminAction=null;render();}});
   var nb=document.getElementById("notif-bar");if(nb)nb.addEventListener("click",function(){if(typeof Notification!=="undefined")Notification.requestPermission().then(function(p){notifPerm=p;render();});});
   var approveBtns=app.querySelectorAll("[data-approve]");
@@ -1092,14 +1175,30 @@ function doUnassign(site,type,schedMin,ds){
 // ── log / delete ──────────────────────────────────────────────
 function confirmLog(){
   if(!modal||saving||!myName)return;
-  saving=true;render();
-  var site=modal.site,type=modal.type,schedMin=modal.schedMin,ds=modal.ds;
-  var entry={name:myName,loggedAt:new Date().toISOString()};
-  if(modalComment.trim())entry.comment=modalComment.trim();
-  dbWrite(dbPath(ds,site,type,schedMin),entry).then(function(){
-    checks[ckKey(ds,site,type,schedMin)]=entry;saving=false;modal=null;render();
-    addToast(site+" &mdash; "+CHECK_CFG[type].label+" logged","ok",4000);
-  }).catch(function(){saving=false;addToast("Could not save","danger",6000);render();});
+  var type=modal.type;
+  var photoRule=PHOTO_RULES[type]||{min:0,required:false};
+  if(photoRule.required&&modalPhotos.length<photoRule.min){
+    addToast("Please add at least "+photoRule.min+" photo"+(photoRule.min>1?"s":""),"danger",4000);return;
+  }
+  saving=true;uploadingPhotos=(modalPhotos.length>0);render();
+  var site=modal.site,schedMin=modal.schedMin,ds=modal.ds;
+
+  // Upload all staged photos to Cloudinary, then save log
+  var uploadPromises=modalPhotos.map(function(p){return uploadToCloudinary(p.file);});
+  Promise.all(uploadPromises).then(function(urls){
+    uploadingPhotos=false;
+    var entry={name:myName,loggedAt:new Date().toISOString()};
+    if(modalComment.trim())entry.comment=modalComment.trim();
+    if(urls.length>0)entry.photos=urls;
+    return dbWrite(dbPath(ds,site,type,schedMin),entry).then(function(){
+      checks[ckKey(ds,site,type,schedMin)]=entry;
+      saving=false;modal=null;modalPhotos=[];modalComment="";render();
+      addToast(site+" &mdash; "+CHECK_CFG[type].label+" logged","ok",4000);
+    });
+  }).catch(function(err){
+    uploadingPhotos=false;saving=false;
+    addToast("Photo upload failed — check connection","danger",6000);render();
+  });
 }
 function deleteLog(){
   if(!modal||saving)return;
@@ -1109,6 +1208,41 @@ function deleteLog(){
     delete checks[ckKey(ds,site,type,schedMin)];saving=false;modal=null;render();
     addToast("Log deleted","warn",4000);
   }).catch(function(){saving=false;addToast("Could not delete","danger",6000);render();});
+}
+
+// ── photo upload to Cloudinary ────────────────────────────────
+function compressAndStage(file, callback){
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      var MAX = 1200;
+      var w = img.width, h = img.height;
+      if(w > MAX){h = Math.round(h*MAX/w);w = MAX;}
+      if(h > MAX){w = Math.round(w*MAX/h);h = MAX;}
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(function(blob){
+        var compressed = new File([blob], file.name, {type:'image/jpeg'});
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        callback({dataUrl:dataUrl, file:compressed});
+      }, 'image/jpeg', 0.75);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadToCloudinary(file){
+  var fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('folder', 'wh_checks');
+  return fetch(STORAGE_URL, {method:'POST', body:fd})
+    .then(function(r){return r.json();})
+    .then(function(data){return data.secure_url;});
 }
 
 function addToast(msg,kind,ms){if(!ms)ms=8000;var id=Date.now()+Math.random();toasts=toasts.slice(-2).concat([{id:id,msg:msg,kind:kind}]);render();setTimeout(function(){toasts=toasts.filter(function(t){return t.id!==id;});render();},ms);}
