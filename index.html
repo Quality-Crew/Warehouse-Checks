@@ -947,13 +947,7 @@ function buildModal(){
       // Hidden inputs
       wrap+='<input type="file" id="photo-input-camera" accept="image/*" capture="environment" style="display:none"/>';
       wrap+='<input type="file" id="photo-input-gallery" accept="image/*" style="display:none"/>';
-      // Picker popup
-      if(photoPickerOpen){
-        wrap+='<div id="photo-picker" style="position:absolute;bottom:44px;left:0;background:#fff;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden;min-width:180px;z-index:10">';
-        wrap+='<button id="pick-camera" style="width:100%;padding:13px 16px;border:none;background:#fff;text-align:left;font-size:14px;font-weight:600;color:#1e293b;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f1f5f9">Take photo</button>';
-        wrap+='<button id="pick-gallery" style="width:100%;padding:13px 16px;border:none;background:#fff;text-align:left;font-size:14px;font-weight:600;color:#1e293b;cursor:pointer;display:flex;align-items:center;gap:10px">Photo library</button>';
-        wrap+='</div>';
-      }
+      // Picker rendered as separate fixed overlay (see buildPhotoPicker)
       wrap+='</div>';
     }
     // Progress indicator during upload
@@ -976,6 +970,20 @@ function buildModal(){
     '</div>';
   }
   return wrap+'</div></div>';
+}
+
+function buildPhotoPicker(){
+  if(!photoPickerOpen) return "";
+  return '<div id="photo-picker-overlay" style="position:fixed;inset:0;z-index:400;display:flex;align-items:flex-end;justify-content:center">'+
+    '<div id="photo-picker-bg" style="position:absolute;inset:0;background:rgba(0,0,0,0.4)"></div>'+
+    '<div style="position:relative;background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:430px;padding:8px 0 36px;z-index:1">'+
+      '<div style="width:38px;height:4px;background:#e2e8f0;border-radius:2px;margin:12px auto 16px"></div>'+
+      '<div style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:8px;font-weight:500">Select source</div>'+
+      '<button id="pick-camera" style="width:100%;padding:16px 20px;border:none;border-top:1px solid #f1f5f9;background:#fff;text-align:left;font-size:16px;font-weight:600;color:#1e293b;cursor:pointer">Take photo</button>'+
+      '<button id="pick-gallery" style="width:100%;padding:16px 20px;border:none;border-top:1px solid #f1f5f9;background:#fff;text-align:left;font-size:16px;font-weight:600;color:#1e293b;cursor:pointer">Photo library</button>'+
+      '<button id="pick-cancel" style="width:100%;padding:16px 20px;border:none;border-top:1px solid #f1f5f9;background:#fff;text-align:left;font-size:16px;color:#94a3b8;cursor:pointer">Cancel</button>'+
+    '</div>'+
+  '</div>';
 }
 
 function buildPhotoViewer(){
@@ -1059,7 +1067,7 @@ function render(){
       '<div class="scroll-x">'+tabsHtml+'</div>'+
     '</div>'+
     '<div id="content-area" style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
-    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal()+buildPhotoViewer();
+    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal()+buildPhotoViewer()+buildPhotoPicker();
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
@@ -1112,14 +1120,16 @@ function render(){
   handlePhotoInput(document.getElementById("photo-input-gallery"));
   // Add photo button — toggle picker
   var apBtn=document.getElementById("add-photo-btn");
-  if(apBtn)apBtn.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=!photoPickerOpen;render();});
-  // Picker options
+  if(apBtn)apBtn.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=true;render();});
+  // Picker overlay buttons
   var pickCam=document.getElementById("pick-camera");
-  if(pickCam)pickCam.addEventListener("click",function(e){e.stopPropagation();var inp=document.getElementById("photo-input-camera");if(inp)inp.click();});
+  if(pickCam)pickCam.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();var inp=document.getElementById("photo-input-camera");if(inp)inp.click();});
   var pickGal=document.getElementById("pick-gallery");
-  if(pickGal)pickGal.addEventListener("click",function(e){e.stopPropagation();var inp=document.getElementById("photo-input-gallery");if(inp)inp.click();});
-  // Close picker when tapping outside
-  document.addEventListener("click",function closePicker(){if(photoPickerOpen){photoPickerOpen=false;render();}document.removeEventListener("click",closePicker);});
+  if(pickGal)pickGal.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();var inp=document.getElementById("photo-input-gallery");if(inp)inp.click();});
+  var pickCancel=document.getElementById("pick-cancel");
+  if(pickCancel)pickCancel.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();});
+  var pickerBg=document.getElementById("photo-picker-bg");
+  if(pickerBg)pickerBg.addEventListener("click",function(){photoPickerOpen=false;render();});
   // Remove photo buttons
   var rpBtns=app.querySelectorAll("[data-removephoto]");
   for(var i=0;i<rpBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var idx=parseInt(el.dataset.removephoto);modalPhotos.splice(idx,1);render();});})(rpBtns[i]);}
