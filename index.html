@@ -153,6 +153,7 @@ var adminAction = null;
 var modalComment= "";  // optional comment/reason text
 var modalPhotos  = [];  // [{dataUrl, file}] — staged photos before upload
 var uploadingPhotos = false;
+var photoViewer   = null; // URL of photo to view fullscreen
 var doAutoScroll= false;
 var assignModal = null; // {site,type,schedMin,ds} for admin picker // only true when user explicitly clicks a site tab
 
@@ -331,7 +332,7 @@ function buildTypeRow(site,type,schedMin,ds){
     if(entry.photos&&entry.photos.length){
       photoThumb='<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">';
       for(var _pi=0;_pi<entry.photos.length;_pi++){
-        photoThumb+='<a href="'+entry.photos[_pi]+'" target="_blank"><img src="'+entry.photos[_pi]+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0"/></a>';
+        photoThumb+='<img src="'+entry.photos[_pi]+'" data-viewphoto="'+entry.photos[_pi]+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer"/>';
       }
       photoThumb+='</div>';
     }
@@ -964,6 +965,16 @@ function buildModal(){
   return wrap+'</div></div>';
 }
 
+function buildPhotoViewer(){
+  if(!photoViewer)return"";
+  return '<div id="photo-viewer-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center">'+
+    '<div style="position:absolute;top:16px;right:16px">'+
+      '<button id="close-viewer" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">&#10005;</button>'+
+    '</div>'+
+    '<img src="'+photoViewer+'" style="max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px"/>'+
+  '</div>';
+}
+
 function buildToasts(){
   if(!toasts.length)return"";
   var cm={ok:"#f0fdf4|#166534|#bbf7d0",warn:"#fffbeb|#854d0e|#fde68a",danger:"#fff1f2|#991b1b|#fecdd3"};
@@ -1035,7 +1046,7 @@ function render(){
       '<div class="scroll-x">'+tabsHtml+'</div>'+
     '</div>'+
     '<div id="content-area" style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
-    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal();
+    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal()+buildPhotoViewer();
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
@@ -1109,6 +1120,11 @@ function render(){
   // Assign to specific person (admin picker)
   var atBtns=app.querySelectorAll("[data-assignto]");
   for(var i=0;i<atBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();if(assignModal){doAssign(assignModal.site,assignModal.type,assignModal.schedMin,assignModal.ds,el.dataset.assignto);}});})(atBtns[i]);}
+  // Photo viewer
+  var vpBtns=app.querySelectorAll("[data-viewphoto]");
+  for(var i=0;i<vpBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();photoViewer=el.dataset.viewphoto;render();});})(vpBtns[i]);}
+  var cvBtn=document.getElementById("close-viewer");if(cvBtn)cvBtn.addEventListener("click",function(){photoViewer=null;render();});
+  var pvOv=document.getElementById("photo-viewer-overlay");if(pvOv)pvOv.addEventListener("click",function(e){if(e.target===pvOv){photoViewer=null;render();}});
   var caBtn=document.getElementById("cancel-assign");if(caBtn)caBtn.addEventListener("click",function(){assignModal=null;render();});
   var asOv=document.getElementById("assign-overlay");if(asOv)asOv.addEventListener("click",function(e){if(e.target===asOv){assignModal=null;render();}});
 
