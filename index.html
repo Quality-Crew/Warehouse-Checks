@@ -205,7 +205,7 @@ function tryRegister(){
 
 // ── data load ─────────────────────────────────────────────────
 function loadData(){
-  var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-15));
+  var cutoff=dstr(new Date(now.getFullYear(),now.getMonth(),now.getDate()-31));
   // Load assignments too
   dbRead("/assignments").then(function(aData){
     if(!aData)aData={};
@@ -647,7 +647,7 @@ function buildSite(site){
 
 function buildHistory(){
   var html='<div style="font-size:13px;color:#64748b;margin-bottom:12px">Past 7 days</div>';
-  for(var i=1;i<=14;i++){
+  for(var i=1;i<=30;i++){
     var d=new Date(now);d.setDate(d.getDate()-i);
     var ds=dstr(d),s=getStats(null,ds);
     var pct=s.total>0?Math.round((s.done/s.total)*100):0;
