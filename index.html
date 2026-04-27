@@ -939,11 +939,16 @@ function buildModal(){
       }
       wrap+='</div>';
     }
-    // Add photo button (if under max)
+    // Add photo buttons (if under max)
     if(photoCount<photoRule.max){
-      wrap+='<label id="add-photo-label" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">';
-      wrap+='&#128247; Add photo';
-      wrap+='<input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none"/></label>';
+      wrap+='<div style="display:flex;gap:8px">';
+      wrap+='<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">';
+      wrap+='&#128247; Camera';
+      wrap+='<input type="file" id="photo-input-camera" accept="image/*" capture="environment" style="display:none"/></label>';
+      wrap+='<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">';
+      wrap+='&#128444; Gallery';
+      wrap+='<input type="file" id="photo-input-gallery" accept="image/*" style="display:none"/></label>';
+      wrap+='</div>';
     }
     // Progress indicator during upload
     if(uploadingPhotos){
@@ -1081,22 +1086,23 @@ function render(){
   }
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
   // Photo input
-  var photoInput=document.getElementById("photo-input");
-  if(photoInput){
-    photoInput.addEventListener("change",function(e){
+  function handlePhotoInput(input){
+    if(!input)return;
+    input.addEventListener("change",function(e){
       var files=e.target.files;
       if(!files||!files.length)return;
       var file=files[0];
-      var photoRule=PHOTO_RULES[modal?modal.type:""]||{max:2};
+      var photoRule=PHOTO_RULES[modal?modal.type:""]||{max:3};
       if(modalPhotos.length>=photoRule.max){addToast("Maximum "+photoRule.max+" photos allowed","warn",3000);return;}
       compressAndStage(file,function(staged){
         modalPhotos.push(staged);
         render();
-        setTimeout(function(){var lbl=document.getElementById("add-photo-label");if(lbl)lbl.scrollIntoView({behavior:"smooth",block:"nearest"});},50);
       });
       e.target.value="";
     });
   }
+  handlePhotoInput(document.getElementById("photo-input-camera"));
+  handlePhotoInput(document.getElementById("photo-input-gallery"));
   // Remove photo buttons
   var rpBtns=app.querySelectorAll("[data-removephoto]");
   for(var i=0;i<rpBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var idx=parseInt(el.dataset.removephoto);modalPhotos.splice(idx,1);render();});})(rpBtns[i]);}
