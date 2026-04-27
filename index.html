@@ -943,7 +943,7 @@ function buildModal(){
     if(photoCount<photoRule.max){
       wrap+='<label id="add-photo-label" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">';
       wrap+='&#128247; Add photo';
-      wrap+='<input type="file" id="photo-input" accept="image/*" style="display:none"/></label>';
+      wrap+='<input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none"/></label>';
     }
     // Progress indicator during upload
     if(uploadingPhotos){
