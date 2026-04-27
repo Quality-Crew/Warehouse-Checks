@@ -942,13 +942,7 @@ function buildModal(){
     }
     // Add photo button + picker popup
     if(photoCount<photoRule.max){
-      wrap+='<div style="position:relative;display:inline-block">';
-      wrap+='<button id="add-photo-btn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">Add photo</button>';
-      // Hidden inputs
-      wrap+='<input type="file" id="photo-input-camera" accept="image/*" capture="environment" style="display:none"/>';
-      wrap+='<input type="file" id="photo-input-gallery" accept="image/*" style="display:none"/>';
-      // Picker rendered as separate fixed overlay (see buildPhotoPicker)
-      wrap+='</div>';
+      wrap+='<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">Add photo<input type="file" id="photo-input" accept="image/*" style="display:none"/></label>';
     }
     // Progress indicator during upload
     if(uploadingPhotos){
@@ -1067,13 +1061,13 @@ function render(){
       '<div class="scroll-x">'+tabsHtml+'</div>'+
     '</div>'+
     '<div id="content-area" style="padding:16px;background:'+contentBg+';min-height:calc(100vh - 120px)">'+content+'</div>'+
-    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal()+buildPhotoViewer()+buildPhotoPicker();
+    buildToasts()+buildModal()+buildAdminConfirm()+buildAssignModal()+buildPhotoViewer();
 
   // bind events
   var tabBtns=app.querySelectorAll("[data-tab]");
   for(var i=0;i<tabBtns.length;i++){(function(el){el.addEventListener("click",function(){tab=el.dataset.tab;historyDay=null;overviewSite=null;doAutoScroll=(SITES.indexOf(tab)>=0);render();});})(tabBtns[i]);}
   var logBtns=app.querySelectorAll("[data-log]");
-  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};modalComment="";modalPhotos=[];photoPickerOpen=false;render();});})(logBtns[i]);}
+  for(var i=0;i<logBtns.length;i++){(function(el){el.addEventListener("click",function(e){if(e.target.closest("[data-edit]"))return;var p=el.dataset.log.split("||");modal={mode:"log",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};modalComment="";modalPhotos=[];render();});})(logBtns[i]);}
   var editBtns=app.querySelectorAll("[data-edit]");
   for(var i=0;i<editBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var p=el.dataset.edit.split("||");modal={mode:"edit",site:p[0],type:p[1],schedMin:parseInt(p[2]),ds:p[3]};render();});})(editBtns[i]);}
   // Overview site boxes → open inline detail
@@ -1100,9 +1094,9 @@ function render(){
   }
   var cfb=document.getElementById("confirm-btn");if(cfb)cfb.addEventListener("click",confirmLog);
   // Photo input
-  function handlePhotoInput(input){
-    if(!input)return;
-    input.addEventListener("change",function(e){
+  var photoInput=document.getElementById("photo-input");
+  if(photoInput){
+    photoInput.addEventListener("change",function(e){
       var files=e.target.files;
       if(!files||!files.length)return;
       var file=files[0];
@@ -1110,26 +1104,11 @@ function render(){
       if(modalPhotos.length>=photoRule.max){addToast("Maximum "+photoRule.max+" photos allowed","warn",3000);return;}
       compressAndStage(file,function(staged){
         modalPhotos.push(staged);
-        photoPickerOpen=false;
         render();
       });
       e.target.value="";
     });
   }
-  handlePhotoInput(document.getElementById("photo-input-camera"));
-  handlePhotoInput(document.getElementById("photo-input-gallery"));
-  // Add photo button — toggle picker
-  var apBtn=document.getElementById("add-photo-btn");
-  if(apBtn)apBtn.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=true;render();});
-  // Picker overlay buttons
-  var pickCam=document.getElementById("pick-camera");
-  if(pickCam)pickCam.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();var inp=document.getElementById("photo-input-camera");if(inp)inp.click();});
-  var pickGal=document.getElementById("pick-gallery");
-  if(pickGal)pickGal.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();var inp=document.getElementById("photo-input-gallery");if(inp)inp.click();});
-  var pickCancel=document.getElementById("pick-cancel");
-  if(pickCancel)pickCancel.addEventListener("click",function(e){e.stopPropagation();photoPickerOpen=false;render();});
-  var pickerBg=document.getElementById("photo-picker-bg");
-  if(pickerBg)pickerBg.addEventListener("click",function(){photoPickerOpen=false;render();});
   // Remove photo buttons
   var rpBtns=app.querySelectorAll("[data-removephoto]");
   for(var i=0;i<rpBtns.length;i++){(function(el){el.addEventListener("click",function(e){e.stopPropagation();var idx=parseInt(el.dataset.removephoto);modalPhotos.splice(idx,1);render();});})(rpBtns[i]);}
@@ -1141,9 +1120,9 @@ function render(){
       if(cc)cc.textContent=modalComment.length+"/200";
     });
   }
-  var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";modalComment="";modalPhotos=[];photoPickerOpen=false;render();});
+  var rlb=document.getElementById("relog-btn");if(rlb)rlb.addEventListener("click",function(){modal.mode="relog";modalComment="";modalPhotos=[];render();});
   var dlb=document.getElementById("delete-btn");if(dlb)dlb.addEventListener("click",deleteLog);
-  var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;modalComment="";modalPhotos=[];photoPickerOpen=false;render();});
+  var ccb=document.getElementById("cancel-btn");if(ccb)ccb.addEventListener("click",function(){modal=null;modalComment="";modalPhotos=[];render();});
   var ov=document.getElementById("overlay");if(ov)ov.addEventListener("click",function(e){if(e.target===ov){modal=null;adminAction=null;render();}});
   var nb=document.getElementById("notif-bar");if(nb)nb.addEventListener("click",function(){if(typeof Notification!=="undefined")Notification.requestPermission().then(function(p){notifPerm=p;render();});});
   var approveBtns=app.querySelectorAll("[data-approve]");
