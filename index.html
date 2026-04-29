@@ -942,7 +942,7 @@ function buildModal(){
     }
     // Add photo button + picker popup
     if(photoCount<photoRule.max){
-      wrap+='<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">Add photo<input type="file" id="photo-input" accept="image/*" style="display:none"/></label>';
+      wrap+='<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;cursor:pointer">Add photo<input type="file" id="photo-input" accept="image/*" multiple style="display:none"/></label>';
     }
     // Progress indicator during upload
     if(uploadingPhotos){
@@ -1099,13 +1099,24 @@ function render(){
     photoInput.addEventListener("change",function(e){
       var files=e.target.files;
       if(!files||!files.length)return;
-      var file=files[0];
       var photoRule=PHOTO_RULES[modal?modal.type:""]||{max:3};
-      if(modalPhotos.length>=photoRule.max){addToast("Maximum "+photoRule.max+" photos allowed","warn",3000);return;}
-      compressAndStage(file,function(staged){
-        modalPhotos.push(staged);
-        render();
-      });
+      var available=photoRule.max-modalPhotos.length;
+      if(available<=0){addToast("Maximum "+photoRule.max+" photos allowed","warn",3000);return;}
+      // Process each file up to the remaining allowed slots
+      var toProcess=Math.min(files.length, available);
+      if(files.length>available){
+        addToast("Only "+available+" more photo"+(available>1?"s":"")+" allowed. First "+available+" selected.","warn",4000);
+      }
+      var processed=0;
+      for(var i=0;i<toProcess;i++){
+        (function(file){
+          compressAndStage(file,function(staged){
+            modalPhotos.push(staged);
+            processed++;
+            if(processed===toProcess)render();
+          });
+        })(files[i]);
+      }
       e.target.value="";
     });
   }
